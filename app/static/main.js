@@ -1,91 +1,95 @@
-// app/static/main.js
 document.addEventListener("DOMContentLoaded", () => {
+    // -------------------------
+    // Animación QR
+    // -------------------------
+    const qrBtn = document.getElementById("generate-qr-btn");
+    const qrImg = document.getElementById("qr-img");
+    const qrInput = document.getElementById("qr-text");
 
-    // --- Canvas MNIST ---
+    qrBtn.addEventListener("click", () => {
+        qrImg.classList.remove("show");
+        setTimeout(() => {
+            const val = qrInput.value || "https://tus-predicciones.com";
+            fetch("/generate_qr", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({text: val})
+            })
+            .then(res => res.blob())
+            .then(blob => {
+                qrImg.src = URL.createObjectURL(blob);
+                qrImg.classList.add("show");
+            });
+        }, 200);
+    });
+
+    // -------------------------
+    // Canvas MNIST interactivo
+    // -------------------------
     const canvas = document.getElementById("canvas-mnist");
     const ctx = canvas.getContext("2d");
-
-    // Inicializar canvas negro
-    function clearCanvas() {
-        ctx.fillStyle = "black";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.beginPath();
-    }
-    clearCanvas();
-
-    ctx.strokeStyle = "white"; // color del pincel
-    ctx.lineWidth = 15;
-    ctx.lineCap = "round";
-
+    const predText = document.getElementById("prediction-realtime");
     let drawing = false;
 
-    canvas.addEventListener("mousedown", () => drawing = true);
-    canvas.addEventListener("mouseup", () => drawing = false);
-    canvas.addEventListener("mouseout", () => drawing = false);
+    // Configuración del canvas
+    ctx.lineWidth = 15;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#000";
 
-    canvas.addEventListener("mousemove", (e) => {
-        if (!drawing) return;
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-
+    // Funciones de dibujo
+    function startDrawing(e) {
+        drawing = true;
         ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y); // solo un punto si no se mueve
-        ctx.stroke();
-    });
-
-    document.getElementById("clear-canvas").addEventListener("click", clearCanvas);
-
-    function getCanvasData() {
-        return canvas.toDataURL("image/png");
+        ctx.moveTo(e.offsetX || e.touches[0].clientX - canvas.getBoundingClientRect().left,
+                   e.offsetY || e.touches[0].clientY - canvas.getBoundingClientRect().top);
     }
 
-    // --- Subida de imágenes ---
-    const fileInput = document.getElementById("file-input");
-    const predictBtn = document.getElementById("predict-files-btn");
-    const resultsList = document.getElementById("file-results");
+    function draw(e) {
+        if (!drawing) return;
+        const x = e.offsetX || e.touches[0].clientX - canvas.getBoundingClientRect().left;
+        const y = e.offsetY || e.touches[0].clientY - canvas.getBoundingClientRect().top;
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        predictCanvas(); // predicción en tiempo real
+    }
 
-    predictBtn.addEventListener("click", async () => {
-        const files = fileInput.files;
-        if (!files.length) return alert("Selecciona archivos primero");
+    function stopDrawing() {
+        drawing = false;
+        ctx.closePath();
+    }
 
-        const formData = new FormData();
-        for (let f of files) formData.append("files", f);
+    // Eventos mouse/touch
+    canvas.addEventListener("mousedown", startDrawing);
+    canvas.addEventListener("mousemove", draw);
+    canvas.addEventListener("mouseup", stopDrawing);
+    canvas.addEventListener("mouseout", stopDrawing);
 
-        try {
-            const res = await fetch("/predict_batch", { method: "POST", body: formData });
-            const data = await res.json();
-            resultsList.innerHTML = "";
-            data.forEach(d => {
-                const li = document.createElement("li");
-                if (d.error) li.textContent = `Error (${d.filename}): ${d.error}`;
-                else li.textContent = `${d.filename}: Predicción ${d.pred} (Confianza ${(d.confidence*100).toFixed(2)}%)`;
-                resultsList.appendChild(li);
-            });
-        } catch (err) {
-            alert("Error al predecir archivos: " + err.message);
-        }
+    canvas.addEventListener("touchstart", startDrawing);
+    canvas.addEventListener("touchmove", draw);
+    canvas.addEventListener("touchend", stopDrawing);
+
+    // Limpiar canvas
+    document.getElementById("clear-canvas").addEventListener("click", () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        predText.textContent = "Predicción en tiempo real: -";
     });
 
-    // --- Generar QR ---
-    const qrBtn = document.getElementById("generate-qr-btn");
-    const qrText = document.getElementById("qr-text");
-    const qrImg = document.getElementById("qr-img");
-
-    qrBtn.addEventListener("click", async () => {
-        const text = qrText.value.trim();
-        if (!text) return alert("Ingresa texto o URL");
-        try {
-            const res = await fetch("/generate_qr", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text })
-            });
-            const blob = await res.blob();
-            qrImg.src = URL.createObjectURL(blob);
-        } catch (err) {
-            alert("Error al generar QR: " + err.message);
-        }
-    });
+    // -------------------------
+    // Predicción en tiempo real
+    // -------------------------
+    function predictCanvas() {
+        const imgData = canvas.toDataURL("image/png");
+        fetch("/predict", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({image: imgData})
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.error) {
+                predText.textContent = `Predicción en tiempo real: ${data.pred} (Confianza: ${Math.round(data.confidence*100)}%)`;
+            }
+        })
+        .catch(err => console.error(err));
+    }
 });
