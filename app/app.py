@@ -13,6 +13,7 @@ from utils.preprocessing import preprocess_image
 from utils.qr_utils import generate_qr_image_bytes
 from utils.export_utils import export_predictions_to_csv
 
+# Inicialización de Flask con rutas explícitas
 app = Flask(
     __name__,
     template_folder=os.path.join(os.path.dirname(__file__), 'templates'),
@@ -21,7 +22,9 @@ app = Flask(
 app.config['UPLOAD_FOLDER'] = os.path.join('app','uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+# -------------------------
 # Carga del modelo MNIST
+# -------------------------
 MODEL_PATH = os.path.join('models', 'MLP_NUEVO.keras')
 if os.path.exists(MODEL_PATH):
     model = keras.models.load_model(MODEL_PATH, compile=False, safe_mode=False)
@@ -30,6 +33,9 @@ else:
     model = None
     print(f"Warning: modelo no encontrado en {MODEL_PATH}. Rutas de predicción estarán inactivas.")
 
+# -------------------------
+# Archivo de log de predicciones
+# -------------------------
 PRED_LOG = os.path.join('app','predictions.json')
 if not os.path.exists(PRED_LOG):
     with open(PRED_LOG, 'w') as f:
