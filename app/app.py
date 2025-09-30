@@ -57,7 +57,7 @@ def save_prediction_local(record: dict):
         fh.truncate()
 
 # -------------------------
-# Función para predecir con ambos modelos
+# Función para predecir con ambos modelos (MLP y CNN separados)
 # -------------------------
 def predict_both_models(image_array):
     result = {}
@@ -160,6 +160,22 @@ def predict_batch():
             results.append({'filename': getattr(f,'filename', None), 'error': str(e)})
 
     return jsonify(results)
+
+# -------------------------
+# Historial de predicciones (JSON) para frontend
+# -------------------------
+@app.route('/history', methods=['GET'])
+def history():
+    limit = int(request.args.get('limit', 50))
+    user = request.args.get('user')
+
+    with open(PRED_LOG, 'r', encoding='utf-8') as fh:
+        data = json.load(fh)
+
+    if user:
+        data = [d for d in data if d.get('user') == user]
+
+    return jsonify(data[:limit])
 
 # -------------------------
 # Ver predicciones en HTML

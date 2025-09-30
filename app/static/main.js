@@ -31,6 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // -------------------------
     const canvas = document.getElementById("canvas-mnist");
     const predText = document.getElementById("prediction-realtime");
+
     if (canvas) {
         const ctx = canvas.getContext("2d");
         let drawing = false;
@@ -102,14 +103,12 @@ document.addEventListener("DOMContentLoaded", () => {
         // -------------------------
         function predictCanvas() {
             try {
-                // Canvas temporal para invertir colores
                 const tempCanvas = document.createElement("canvas");
                 const tempCtx = tempCanvas.getContext("2d");
                 tempCanvas.width = canvas.width;
                 tempCanvas.height = canvas.height;
 
                 tempCtx.drawImage(canvas, 0, 0);
-
                 const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
                 const dataPixels = imgData.data;
 
@@ -118,13 +117,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (dataPixels[i] !== 255 || dataPixels[i+1] !== 255 || dataPixels[i+2] !== 255) {
                         hasDrawing = true;
                     }
-                    // Invertir colores
                     dataPixels[i] = 255 - dataPixels[i];
                     dataPixels[i + 1] = 255 - dataPixels[i + 1];
                     dataPixels[i + 2] = 255 - dataPixels[i + 2];
                 }
 
-                if (!hasDrawing) return; // No predecir si está vacío
+                if (!hasDrawing) return;
                 tempCtx.putImageData(imgData, 0, 0);
 
                 const imgBase64 = tempCanvas.toDataURL("image/png");
@@ -144,10 +142,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     const mlp = data.mlp || {};
                     const cnn = data.cnn || {};
 
-                    const mlpPred = mlp.pred !== undefined ? mlp.pred : "-";
+                    const mlpPred = mlp.pred ?? "-";
                     const mlpConf = mlp.confidence !== undefined ? Math.round(mlp.confidence * 100) : "-";
-
-                    const cnnPred = cnn.pred !== undefined ? cnn.pred : "-";
+                    const cnnPred = cnn.pred ?? "-";
                     const cnnConf = cnn.confidence !== undefined ? Math.round(cnn.confidence * 100) : "-";
 
                     predText.textContent = `MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`;
@@ -181,10 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 formData.append("files", files[i]);
             }
 
-            fetch("/predict_batch", {
-                method: "POST",
-                body: formData
-            })
+            fetch("/predict_batch", { method: "POST", body: formData })
             .then(res => res.json())
             .then(results => {
                 fileResults.innerHTML = "";
@@ -193,9 +187,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (r.error) {
                         li.textContent = `${r.filename || "Archivo"}: Error -> ${r.error}`;
                     } else {
-                        const mlpPred = r.pred_mlp !== undefined ? r.pred_mlp : "-";
+                        const mlpPred = r.pred_mlp ?? "-";
                         const mlpConf = r.conf_mlp !== undefined ? Math.round(r.conf_mlp*100) : "-";
-                        const cnnPred = r.pred_cnn !== undefined ? r.pred_cnn : "-";
+                        const cnnPred = r.pred_cnn ?? "-";
                         const cnnConf = r.conf_cnn !== undefined ? Math.round(r.conf_cnn*100) : "-";
                         li.textContent = `${r.filename}: MLP ${mlpPred} (${mlpConf}%), CNN ${cnnPred} (${cnnConf}%)`;
                     }
