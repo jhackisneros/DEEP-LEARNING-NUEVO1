@@ -57,12 +57,10 @@ def save_prediction_local(record: dict):
         fh.truncate()
 
 # -------------------------
-# Función para predecir con ambos modelos
+# Función para predecir con MLP y CNN por separado
 # -------------------------
 def predict_both_models(image_array):
     result = {}
-    mlp_pred = cnn_pred = None
-
     if mlp_model:
         mlp_input = image_array.reshape(1, -1)
         mlp_pred = mlp_model.predict(mlp_input)
@@ -70,7 +68,6 @@ def predict_both_models(image_array):
             'pred': int(np.argmax(mlp_pred)),
             'confidence': float(np.max(mlp_pred))
         }
-
     if cnn_model:
         cnn_input = image_array.reshape(1,28,28,1)
         cnn_pred = cnn_model.predict(cnn_input)
@@ -78,14 +75,6 @@ def predict_both_models(image_array):
             'pred': int(np.argmax(cnn_pred)),
             'confidence': float(np.max(cnn_pred))
         }
-
-    if mlp_pred is not None and cnn_pred is not None:
-        combined = (mlp_pred + cnn_pred) / 2
-        result['combined'] = {
-            'pred': int(np.argmax(combined)),
-            'confidence': float(np.max(combined))
-        }
-
     return result
 
 # -------------------------
@@ -131,9 +120,7 @@ def predict():
             'pred_mlp': predictions.get('mlp', {}).get('pred'),
             'conf_mlp': predictions.get('mlp', {}).get('confidence'),
             'pred_cnn': predictions.get('cnn', {}).get('pred'),
-            'conf_cnn': predictions.get('cnn', {}).get('confidence'),
-            'pred_combined': predictions.get('combined', {}).get('pred'),
-            'conf_combined': predictions.get('combined', {}).get('confidence'),
+            'conf_cnn': predictions.get('cnn', {}).get('confidence')
         }
         save_prediction_local(record)
         return jsonify(predictions)
@@ -161,9 +148,7 @@ def predict_batch():
                 'pred_mlp': predictions.get('mlp', {}).get('pred'),
                 'conf_mlp': predictions.get('mlp', {}).get('confidence'),
                 'pred_cnn': predictions.get('cnn', {}).get('pred'),
-                'conf_cnn': predictions.get('cnn', {}).get('confidence'),
-                'pred_combined': predictions.get('combined', {}).get('pred'),
-                'conf_combined': predictions.get('combined', {}).get('confidence'),
+                'conf_cnn': predictions.get('cnn', {}).get('confidence')
             }
             save_prediction_local(record)
             results.append(record)
@@ -189,7 +174,7 @@ def predictions_view():
     if pred_filter is not None:
         try:
             pval = int(pred_filter)
-            data = [d for d in data if d.get('pred_combined') == pval]
+            data = [d for d in data if d.get('pred_mlp') == pval or d.get('pred_cnn') == pval]
         except ValueError:
             pass
 
@@ -205,7 +190,6 @@ def generate_qr():
         return jsonify({'error': 'No payload'}), 400
 
     text = payload.get('url') or payload.get('text') or "https://tus-predicciones.com"
-
     img_bytes = generate_qr_image_bytes(text)
     return send_file(io.BytesIO(img_bytes), mimetype='image/png')
 

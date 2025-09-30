@@ -17,11 +17,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ text: val })
                 })
-                    .then(res => res.blob())
-                    .then(blob => {
-                        qrImg.src = URL.createObjectURL(blob);
-                        qrImg.classList.add("show");
-                    });
+                .then(res => res.blob())
+                .then(blob => {
+                    qrImg.src = URL.createObjectURL(blob);
+                    qrImg.classList.add("show");
+                });
             }, 200);
         });
     }
@@ -36,7 +36,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const ctx = canvas.getContext("2d");
     let drawing = false;
 
-    // Configuración del pincel
     ctx.lineWidth = 20;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -50,10 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 y: e.touches[0].clientY - rect.top
             };
         } else {
-            return {
-                x: e.offsetX,
-                y: e.offsetY
-            };
+            return { x: e.offsetX, y: e.offsetY };
         }
     }
 
@@ -80,52 +76,44 @@ document.addEventListener("DOMContentLoaded", () => {
         predictCanvas(); // Solo predecir al terminar de dibujar
     }
 
-    // Eventos mouse
     canvas.addEventListener("mousedown", startDrawing);
     canvas.addEventListener("mousemove", draw);
     canvas.addEventListener("mouseup", stopDrawing);
     canvas.addEventListener("mouseleave", stopDrawing);
 
-    // Eventos touch (móvil)
     canvas.addEventListener("touchstart", startDrawing, { passive: false });
     canvas.addEventListener("touchmove", draw, { passive: false });
     canvas.addEventListener("touchend", stopDrawing);
     canvas.addEventListener("touchcancel", stopDrawing);
 
-    // Limpiar canvas
     document.getElementById("clear-canvas").addEventListener("click", () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         predText.textContent = "Predicción en tiempo real: -";
     });
 
     // -------------------------
-    // Predicción en tiempo real (MLP y CNN por separado)
+    // Predicción en tiempo real (MLP y CNN separados)
     // -------------------------
     function predictCanvas() {
         try {
-            // Canvas temporal para invertir colores
             const tempCanvas = document.createElement("canvas");
             const tempCtx = tempCanvas.getContext("2d");
             tempCanvas.width = canvas.width;
             tempCanvas.height = canvas.height;
 
             tempCtx.drawImage(canvas, 0, 0);
-
             const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
             const dataPixels = imgData.data;
 
             let hasDrawing = false;
             for (let i = 0; i < dataPixels.length; i += 4) {
-                if (dataPixels[i] !== 255 || dataPixels[i+1] !== 255 || dataPixels[i+2] !== 255) {
-                    hasDrawing = true;
-                }
-                // Invertir colores
+                if (dataPixels[i] !== 255 || dataPixels[i+1] !== 255 || dataPixels[i+2] !== 255) hasDrawing = true;
                 dataPixels[i] = 255 - dataPixels[i];
-                dataPixels[i + 1] = 255 - dataPixels[i + 1];
-                dataPixels[i + 2] = 255 - dataPixels[i + 2];
+                dataPixels[i+1] = 255 - dataPixels[i+1];
+                dataPixels[i+2] = 255 - dataPixels[i+2];
             }
 
-            if (!hasDrawing) return; // No predecir si está vacío
+            if (!hasDrawing) return;
             tempCtx.putImageData(imgData, 0, 0);
 
             const imgBase64 = tempCanvas.toDataURL("image/png");
@@ -142,15 +130,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
 
-                // Mostrar MLP y CNN por separado
                 const mlp = data.mlp || {};
                 const cnn = data.cnn || {};
 
                 const mlpPred = mlp.pred !== undefined ? mlp.pred : "-";
-                const mlpConf = mlp.confidence !== undefined ? Math.round(mlp.confidence * 100) : "-";
+                const mlpConf = mlp.confidence !== undefined ? Math.round(mlp.confidence*100) : "-";
 
                 const cnnPred = cnn.pred !== undefined ? cnn.pred : "-";
-                const cnnConf = cnn.confidence !== undefined ? Math.round(cnn.confidence * 100) : "-";
+                const cnnConf = cnn.confidence !== undefined ? Math.round(cnn.confidence*100) : "-";
 
                 predText.textContent = `MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`;
             })
