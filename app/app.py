@@ -13,7 +13,11 @@ from utils.preprocessing import preprocess_image
 from utils.qr_utils import generate_qr_image_bytes
 from utils.export_utils import export_predictions_to_csv
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    template_folder=os.path.join(os.path.dirname(__file__), 'templates'),
+    static_folder=os.path.join(os.path.dirname(__file__), 'static')
+)
 app.config['UPLOAD_FOLDER'] = os.path.join('app','uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
