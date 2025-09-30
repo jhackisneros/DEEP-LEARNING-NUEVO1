@@ -3,12 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <title>Login - MNIST AI Demo</title>
+    <!-- CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='darkmode.css') }}" id="darkmode-css" disabled>
 </head>
 <body>
+    <!-- Navbar -->
     {% include 'navbar.html' %}
 
+    <!-- Contenido de Login -->
     <main>
         <h1>Iniciar Sesión</h1>
         <form id="login-form" method="POST" action="{{ url_for('login') }}">
@@ -24,6 +27,7 @@
         <p>¿No tienes cuenta? <a href="{{ url_for('register') }}">Regístrate aquí</a></p>
     </main>
 
+    <!-- JS -->
     <script src="{{ url_for('static', filename='darkmode.js') }}"></script>
 </body>
 </html>
