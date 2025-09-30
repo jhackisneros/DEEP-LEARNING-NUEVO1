@@ -19,7 +19,7 @@ app.config['UPLOAD_FOLDER'] = os.path.join('app','uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Try to load the model (if exists)
-MODEL_PATH = os.path.join('models', 'mnist_compiled_model.keras')
+MODEL_PATH = os.path.join('models', 'MLP_NUEVO.keras')
 
 model = keras.models.load_model(MODEL_PATH)
 if os.path.exists(MODEL_PATH):
