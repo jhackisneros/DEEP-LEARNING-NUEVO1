@@ -227,7 +227,40 @@ def export():
         as_attachment=True,
         download_name='predictions_export.csv'
     )
+# -------------------------
+# ADMIN / ENTRENAMIENTO
+# -------------------------
+ADMIN_PASSWORD = "admin123"  # cambiar a algo seguro
 
+@app.route('/admin', methods=['GET','POST'])
+def admin():
+    if request.method == 'POST':
+        password = request.form.get('password')
+        if password == ADMIN_PASSWORD:
+            return render_template('admin_train.html')
+        else:
+            return "Contraseña incorrecta", 403
+    return render_template('admin_login.html')
+
+
+@app.route('/train_feedback', methods=['POST'])
+def train_feedback():
+    data = request.get_json()
+    if not data or 'image' not in data or 'label' not in data:
+        return jsonify({"message":"Faltan datos"}), 400
+
+    try:
+        arr = preprocess_image(data['image'], target_size=(28,28), flatten=True)
+        label = int(data['label'])
+
+        if mlp_model:
+            y_true = keras.utils.to_categorical([label], num_classes=10)
+            mlp_model.fit(arr.reshape(1,-1), y_true, epochs=1, verbose=0)
+            return jsonify({"message": f"Modelo actualizado con etiqueta {label}"})
+        else:
+            return jsonify({"message": "No hay modelo MLP cargado"}), 500
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
 # -------------------------
 # Run server
 # -------------------------

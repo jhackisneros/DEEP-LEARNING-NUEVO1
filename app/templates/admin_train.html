@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Entrenamiento Interactivo</title>
+<style>
+canvas {border:1px solid #000;}
+</style>
+</head>
+<body>
+<h3>Entrenamiento Interactivo MLP</h3>
+
+<canvas id="canvas-train" width="280" height="280"></canvas>
+<br>
+<label for="correct-label">Etiqueta correcta:</label>
+<select id="correct-label">
+  <option value="0">0</option>
+  <option value="1">1</option>
+  <option value="2">2</option>
+  <option value="3">3</option>
+  <option value="4">4</option>
+  <option value="5">5</option>
+  <option value="6">6</option>
+  <option value="7">7</option>
+  <option value="8">8</option>
+  <option value="9">9</option>
+</select>
+<button id="submit-feedback">Enviar corrección</button>
+<p id="feedback-msg"></p>
+<button id="clear-canvas">Limpiar</button>
+
+<script>
+const canvas = document.getElementById("canvas-train");
+const ctx = canvas.getContext("2d");
+let drawing = false;
+
+// Configuración pincel
+ctx.lineWidth = 20;
+ctx.lineCap = "round";
+ctx.lineJoin = "round";
+ctx.strokeStyle = "#000";
+
+// Funciones de dibujo
+function getCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    if(e.touches) return {x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top};
+    return {x: e.offsetX, y: e.offsetY};
+}
+function startDrawing(e){ drawing=true; const {x,y}=getCoords(e); ctx.beginPath(); ctx.moveTo(x,y); e.preventDefault();}
+function draw(e){ if(!drawing) return; const {x,y}=getCoords(e); ctx.lineTo(x,y); ctx.stroke(); e.preventDefault();}
+function stopDrawing(){ if(!drawing) return; drawing=false; ctx.closePath(); }
+
+canvas.addEventListener("mousedown", startDrawing);
+canvas.addEventListener("mousemove", draw);
+canvas.addEventListener("mouseup", stopDrawing);
+canvas.addEventListener("mouseleave", stopDrawing);
+canvas.addEventListener("touchstart", startDrawing, {passive:false});
+canvas.addEventListener("touchmove", draw, {passive:false});
+canvas.addEventListener("touchend", stopDrawing);
+canvas.addEventListener("touchcancel", stopDrawing);
+
+// Limpiar canvas
+document.getElementById("clear-canvas").addEventListener("click", ()=>{ctx.clearRect(0,0,canvas.width,canvas.height);});
+
+// Enviar corrección
+document.getElementById("submit-feedback").addEventListener("click", () => {
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = 28; tempCanvas.height = 28;
+    const tempCtx = tempCanvas.getContext("2d");
+    tempCtx.drawImage(canvas, 0, 0, 28, 28);
+    const imgBase64 = tempCanvas.toDataURL("image/png");
+    const correctLabel = document.getElementById("correct-label").value;
+
+    fetch("/train_feedback", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({image: imgBase64, label: correctLabel})
+    })
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById("feedback-msg").textContent = data.message;
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+    });
+});
+</script>
+</body>
+</html>
