@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Deep Learning Demo MNIST</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='darkmode.css') }}" id="darkmode-css" disabled>
+    <link rel="stylesheet" href="{{ url_for('static', filename='darkmode.css') }}" id="darkmode-css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -14,7 +14,9 @@
     <section id="demo-mnist">
         <h2>Demo MNIST</h2>
         <canvas id="canvas-mnist" width="280" height="280" style="border:1px solid #000;"></canvas>
-        <div><button id="clear-canvas">Limpiar</button></div>
+        <div>
+            <button id="clear-canvas">Limpiar</button>
+        </div>
         <p id="prediction-realtime">Predicción en tiempo real: -</p>
     </section>
 

@@ -6,22 +6,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!toggleBtn) return console.error("No se encontró el botón de darkmode!");
     if (!darkmodeLink) return console.error("No se encontró el link de darkmode!");
 
-    // Restaurar preferencia guardada
-    const savedMode = localStorage.getItem("darkmode");
-    if (savedMode === "on") {
-        darkmodeLink.disabled = false;
-        toggleBtn.textContent = "🌞 Modo Claro";
-    } else {
-        darkmodeLink.disabled = true;
-        toggleBtn.textContent = "🌙 Modo Oscuro";
-    }
+    // Cargar estado del localStorage
+    const darkmodeActive = localStorage.getItem("darkmode") === "true";
+    darkmodeLink.disabled = !darkmodeActive;
+    toggleBtn.textContent = darkmodeActive ? "🌞 Modo Claro" : "🌙 Modo Oscuro";
 
-    // Alternar y guardar preferencia
+    // Evento para alternar
     toggleBtn.addEventListener("click", () => {
         darkmodeLink.disabled = !darkmodeLink.disabled;
-        const darkmodeActive = !darkmodeLink.disabled;
-        toggleBtn.textContent = darkmodeActive ? "🌞 Modo Claro" : "🌙 Modo Oscuro";
-        localStorage.setItem("darkmode", darkmodeActive ? "on" : "off");
-        console.log("Darkmode activo:", darkmodeActive);
+        const isActive = !darkmodeLink.disabled;
+        toggleBtn.textContent = isActive ? "🌞 Modo Claro" : "🌙 Modo Oscuro";
+        localStorage.setItem("darkmode", isActive);
     });
 });
