@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Últimas Predicciones</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Últimas Predicciones</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Hora (UTC)</th>
+                <th>Usuario</th>
+                <th>Predicción</th>
+                <th>Confianza</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in predictions %}
+            <tr>
+                <td>{{ p.time }}</td>
+                <td>{{ p.user or 'Anonimo' }}</td>
+                <td>{{ p.pred }}</td>
+                <td>{{ "%.2f"|format(p.confidence) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
