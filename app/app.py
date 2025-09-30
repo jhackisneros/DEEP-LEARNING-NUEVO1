@@ -12,7 +12,9 @@ from utils.preprocessing import preprocess_image
 from utils.qr_utils import generate_qr_image_bytes
 from utils.export_utils import export_predictions_to_csv
 
+# -------------------------
 # Inicialización de Flask
+# -------------------------
 app = Flask(
     __name__,
     template_folder=os.path.join(os.path.dirname(__file__), 'templates'),
@@ -30,8 +32,10 @@ CNN_PATH = os.path.join('models', 'CNN_MNIST.keras')
 mlp_model = keras.models.load_model(MLP_PATH, compile=False) if os.path.exists(MLP_PATH) else None
 cnn_model = keras.models.load_model(CNN_PATH, compile=False) if os.path.exists(CNN_PATH) else None
 
-if mlp_model: mlp_model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
-if cnn_model: cnn_model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+if mlp_model:
+    mlp_model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+if cnn_model:
+    cnn_model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 
 # -------------------------
 # Log de predicciones
@@ -57,6 +61,7 @@ def save_prediction_local(record: dict):
 # -------------------------
 def predict_both_models(image_array):
     result = {}
+    mlp_pred = cnn_pred = None
 
     if mlp_model:
         mlp_input = image_array.reshape(1, -1)
@@ -74,7 +79,7 @@ def predict_both_models(image_array):
             'confidence': float(np.max(cnn_pred))
         }
 
-    if mlp_model and cnn_model:
+    if mlp_pred is not None and cnn_pred is not None:
         combined = (mlp_pred + cnn_pred) / 2
         result['combined'] = {
             'pred': int(np.argmax(combined)),
@@ -90,7 +95,7 @@ def predict_both_models(image_array):
 def index():
     return render_template('index.html')
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -98,7 +103,7 @@ def login():
         return f"Login recibido para {username}"
     return render_template('login.html')
 
-@app.route('/register', methods=['GET', 'POST'])
+@app.route('/register', methods=['GET','POST'])
 def register():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -163,7 +168,7 @@ def predict_batch():
             save_prediction_local(record)
             results.append(record)
         except Exception as e:
-            results.append({'filename': getattr(f, 'filename', None), 'error': str(e)})
+            results.append({'filename': getattr(f,'filename',None), 'error': str(e)})
 
     return jsonify(results)
 
@@ -199,9 +204,7 @@ def generate_qr():
     if not payload:
         return jsonify({'error': 'No payload'}), 400
 
-    text = payload.get('url') or payload.get('text')
-    if not text:
-        text = "https://tus-predicciones.com"
+    text = payload.get('url') or payload.get('text') or "https://tus-predicciones.com"
 
     img_bytes = generate_qr_image_bytes(text)
     return send_file(io.BytesIO(img_bytes), mimetype='image/png')

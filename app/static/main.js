@@ -17,11 +17,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ text: val })
                 })
-                .then(res => res.blob())
-                .then(blob => {
-                    qrImg.src = URL.createObjectURL(blob);
-                    qrImg.classList.add("show");
-                });
+                    .then(res => res.blob())
+                    .then(blob => {
+                        qrImg.src = URL.createObjectURL(blob);
+                        qrImg.classList.add("show");
+                    });
             }, 200);
         });
     }
@@ -45,9 +45,15 @@ document.addEventListener("DOMContentLoaded", () => {
     function getCoords(e) {
         const rect = canvas.getBoundingClientRect();
         if (e.touches) {
-            return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+            return {
+                x: e.touches[0].clientX - rect.left,
+                y: e.touches[0].clientY - rect.top
+            };
         } else {
-            return { x: e.offsetX, y: e.offsetY };
+            return {
+                x: e.offsetX,
+                y: e.offsetY
+            };
         }
     }
 
@@ -64,7 +70,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const { x, y } = getCoords(e);
         ctx.lineTo(x, y);
         ctx.stroke();
-        predictCanvas();
         e.preventDefault();
     }
 
@@ -72,13 +77,17 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!drawing) return;
         drawing = false;
         ctx.closePath();
+        // Solo predecir cuando el usuario deja de dibujar
+        predictCanvas();
     }
 
-    // Eventos mouse/touch
+    // Eventos mouse
     canvas.addEventListener("mousedown", startDrawing);
     canvas.addEventListener("mousemove", draw);
     canvas.addEventListener("mouseup", stopDrawing);
     canvas.addEventListener("mouseleave", stopDrawing);
+
+    // Eventos touch (móvil)
     canvas.addEventListener("touchstart", startDrawing, { passive: false });
     canvas.addEventListener("touchmove", draw, { passive: false });
     canvas.addEventListener("touchend", stopDrawing);
@@ -91,42 +100,63 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // -------------------------
-    // Predicción en tiempo real (MLP + CNN + Combinada)
+    // Predicción en tiempo real (solo al terminar de dibujar)
     // -------------------------
     function predictCanvas() {
-        const tempCanvas = document.createElement("canvas");
-        const tempCtx = tempCanvas.getContext("2d");
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height;
-        tempCtx.drawImage(canvas, 0, 0);
+        try {
+            // Canvas temporal para invertir colores
+            const tempCanvas = document.createElement("canvas");
+            const tempCtx = tempCanvas.getContext("2d");
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
 
-        // Invertir colores (blanco ↔ negro)
-        const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-        const data = imgData.data;
-        for (let i = 0; i < data.length; i += 4) {
-            data[i] = 255 - data[i];
-            data[i + 1] = 255 - data[i + 1];
-            data[i + 2] = 255 - data[i + 2];
-        }
-        tempCtx.putImageData(imgData, 0, 0);
+            tempCtx.drawImage(canvas, 0, 0);
 
-        const imgBase64 = tempCanvas.toDataURL("image/png");
+            const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const dataPixels = imgData.data;
 
-        fetch("/predict", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ image: imgBase64 })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (!data.error) {
-                predText.innerHTML = `
-                    Predicción MLP: ${data.mlp.pred} (${Math.round(data.mlp.confidence*100)}%)<br>
-                    Predicción CNN: ${data.cnn.pred} (${Math.round(data.cnn.confidence*100)}%)<br>
-                    Predicción Combinada: ${data.combined.pred} (${Math.round(data.combined.confidence*100)}%)
-                `;
+            let hasDrawing = false;
+            for (let i = 0; i < dataPixels.length; i += 4) {
+                if (dataPixels[i] !== 255 || dataPixels[i+1] !== 255 || dataPixels[i+2] !== 255) {
+                    hasDrawing = true;
+                }
+                // Invertir colores
+                dataPixels[i] = 255 - dataPixels[i];
+                dataPixels[i + 1] = 255 - dataPixels[i + 1];
+                dataPixels[i + 2] = 255 - dataPixels[i + 2];
             }
-        })
-        .catch(err => console.error(err));
+
+            if (!hasDrawing) return; // Si no hay dibujo, no predecir
+            tempCtx.putImageData(imgData, 0, 0);
+
+            const imgBase64 = tempCanvas.toDataURL("image/png");
+
+            fetch("/predict", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ image: imgBase64 })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    predText.textContent = "Error en predicción";
+                    return;
+                }
+
+                const combined = data.combined || {};
+                const pred = combined.pred !== undefined ? combined.pred : "-";
+                const conf = combined.confidence !== undefined ? Math.round(combined.confidence * 100) : "-";
+
+                predText.textContent = `Predicción combinada: ${pred} (Confianza: ${conf}%)`;
+            })
+            .catch(err => {
+                console.error("Error en predicción:", err);
+                predText.textContent = "Error al procesar predicción";
+            });
+
+        } catch (err) {
+            console.error("Error al procesar el canvas:", err);
+            predText.textContent = "Error interno al procesar el canvas";
+        }
     }
 });
