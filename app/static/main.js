@@ -1,3 +1,4 @@
+// app/static/main.js
 document.addEventListener("DOMContentLoaded", () => {
     // -------------------------
     // Animación QR
@@ -6,33 +7,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const qrImg = document.getElementById("qr-img");
     const qrInput = document.getElementById("qr-text");
 
-    qrBtn.addEventListener("click", () => {
-        qrImg.classList.remove("show");
-        setTimeout(() => {
-            const val = qrInput.value || "https://tus-predicciones.com";
-            fetch("/generate_qr", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: val })
-            })
-                .then(res => res.blob())
-                .then(blob => {
-                    qrImg.src = URL.createObjectURL(blob);
-                    qrImg.classList.add("show");
-                });
-        }, 200);
-    });
+    if (qrBtn) {
+        qrBtn.addEventListener("click", () => {
+            qrImg.classList.remove("show");
+            setTimeout(() => {
+                const val = qrInput.value || "https://tus-predicciones.com";
+                fetch("/generate_qr", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: val })
+                })
+                    .then(res => res.blob())
+                    .then(blob => {
+                        qrImg.src = URL.createObjectURL(blob);
+                        qrImg.classList.add("show");
+                    });
+            }, 200);
+        });
+    }
 
     // -------------------------
     // Canvas MNIST interactivo (tipo Paint)
     // -------------------------
     const canvas = document.getElementById("canvas-mnist");
-    const ctx = canvas.getContext("2d");
     const predText = document.getElementById("prediction-realtime");
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
     let drawing = false;
 
     // Configuración del pincel
-    ctx.lineWidth = 15;
+    ctx.lineWidth = 20;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.strokeStyle = "#000";
@@ -82,8 +87,8 @@ document.addEventListener("DOMContentLoaded", () => {
     canvas.addEventListener("mouseleave", stopDrawing);
 
     // Eventos touch (móvil)
-    canvas.addEventListener("touchstart", startDrawing);
-    canvas.addEventListener("touchmove", draw);
+    canvas.addEventListener("touchstart", startDrawing, { passive: false });
+    canvas.addEventListener("touchmove", draw, { passive: false });
     canvas.addEventListener("touchend", stopDrawing);
     canvas.addEventListener("touchcancel", stopDrawing);
 
@@ -94,14 +99,34 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // -------------------------
-    // Predicción en tiempo real
+    // Predicción en tiempo real (con inversión de colores)
     // -------------------------
     function predictCanvas() {
-        const imgData = canvas.toDataURL("image/png");
+        // Canvas temporal para invertir colores
+        const tempCanvas = document.createElement("canvas");
+        const tempCtx = tempCanvas.getContext("2d");
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+
+        // Dibujar contenido actual
+        tempCtx.drawImage(canvas, 0, 0);
+
+        // Invertir colores (blanco ↔ negro)
+        const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const data = imgData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            data[i] = 255 - data[i];       // R
+            data[i + 1] = 255 - data[i+1]; // G
+            data[i + 2] = 255 - data[i+2]; // B
+        }
+        tempCtx.putImageData(imgData, 0, 0);
+
+        const imgBase64 = tempCanvas.toDataURL("image/png");
+
         fetch("/predict", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ image: imgData })
+            body: JSON.stringify({ image: imgBase64 })
         })
             .then(res => res.json())
             .then(data => {
