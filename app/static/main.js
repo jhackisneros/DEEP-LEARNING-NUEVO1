@@ -77,8 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!drawing) return;
         drawing = false;
         ctx.closePath();
-        // Solo predecir cuando el usuario deja de dibujar
-        predictCanvas();
+        predictCanvas(); // Solo predecir al terminar de dibujar
     }
 
     // Eventos mouse
@@ -100,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // -------------------------
-    // Predicción en tiempo real (solo al terminar de dibujar)
+    // Predicción en tiempo real (MLP y CNN por separado)
     // -------------------------
     function predictCanvas() {
         try {
@@ -126,7 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 dataPixels[i + 2] = 255 - dataPixels[i + 2];
             }
 
-            if (!hasDrawing) return; // Si no hay dibujo, no predecir
+            if (!hasDrawing) return; // No predecir si está vacío
             tempCtx.putImageData(imgData, 0, 0);
 
             const imgBase64 = tempCanvas.toDataURL("image/png");
@@ -143,11 +142,17 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
 
-                const combined = data.combined || {};
-                const pred = combined.pred !== undefined ? combined.pred : "-";
-                const conf = combined.confidence !== undefined ? Math.round(combined.confidence * 100) : "-";
+                // Mostrar MLP y CNN por separado
+                const mlp = data.mlp || {};
+                const cnn = data.cnn || {};
 
-                predText.textContent = `Predicción combinada: ${pred} (Confianza: ${conf}%)`;
+                const mlpPred = mlp.pred !== undefined ? mlp.pred : "-";
+                const mlpConf = mlp.confidence !== undefined ? Math.round(mlp.confidence * 100) : "-";
+
+                const cnnPred = cnn.pred !== undefined ? cnn.pred : "-";
+                const cnnConf = cnn.confidence !== undefined ? Math.round(cnn.confidence * 100) : "-";
+
+                predText.textContent = `MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`;
             })
             .catch(err => {
                 console.error("Error en predicción:", err);
