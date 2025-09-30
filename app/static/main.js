@@ -17,11 +17,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ text: val })
                 })
-                    .then(res => res.blob())
-                    .then(blob => {
-                        qrImg.src = URL.createObjectURL(blob);
-                        qrImg.classList.add("show");
-                    });
+                .then(res => res.blob())
+                .then(blob => {
+                    qrImg.src = URL.createObjectURL(blob);
+                    qrImg.classList.add("show");
+                });
             }, 200);
         });
     }
@@ -45,15 +45,9 @@ document.addEventListener("DOMContentLoaded", () => {
     function getCoords(e) {
         const rect = canvas.getBoundingClientRect();
         if (e.touches) {
-            return {
-                x: e.touches[0].clientX - rect.left,
-                y: e.touches[0].clientY - rect.top
-            };
+            return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
         } else {
-            return {
-                x: e.offsetX,
-                y: e.offsetY
-            };
+            return { x: e.offsetX, y: e.offsetY };
         }
     }
 
@@ -80,13 +74,11 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.closePath();
     }
 
-    // Eventos mouse
+    // Eventos mouse/touch
     canvas.addEventListener("mousedown", startDrawing);
     canvas.addEventListener("mousemove", draw);
     canvas.addEventListener("mouseup", stopDrawing);
     canvas.addEventListener("mouseleave", stopDrawing);
-
-    // Eventos touch (móvil)
     canvas.addEventListener("touchstart", startDrawing, { passive: false });
     canvas.addEventListener("touchmove", draw, { passive: false });
     canvas.addEventListener("touchend", stopDrawing);
@@ -99,25 +91,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // -------------------------
-    // Predicción en tiempo real (con inversión de colores)
+    // Predicción en tiempo real (MLP + CNN + Combinada)
     // -------------------------
     function predictCanvas() {
-        // Canvas temporal para invertir colores
         const tempCanvas = document.createElement("canvas");
         const tempCtx = tempCanvas.getContext("2d");
         tempCanvas.width = canvas.width;
         tempCanvas.height = canvas.height;
-
-        // Dibujar contenido actual
         tempCtx.drawImage(canvas, 0, 0);
 
         // Invertir colores (blanco ↔ negro)
         const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
         const data = imgData.data;
         for (let i = 0; i < data.length; i += 4) {
-            data[i] = 255 - data[i];       // R
-            data[i + 1] = 255 - data[i+1]; // G
-            data[i + 2] = 255 - data[i+2]; // B
+            data[i] = 255 - data[i];
+            data[i + 1] = 255 - data[i + 1];
+            data[i + 2] = 255 - data[i + 2];
         }
         tempCtx.putImageData(imgData, 0, 0);
 
@@ -128,12 +117,16 @@ document.addEventListener("DOMContentLoaded", () => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ image: imgBase64 })
         })
-            .then(res => res.json())
-            .then(data => {
-                if (!data.error) {
-                    predText.textContent = `Predicción en tiempo real: ${data.pred} (Confianza: ${Math.round(data.confidence * 100)}%)`;
-                }
-            })
-            .catch(err => console.error(err));
+        .then(res => res.json())
+        .then(data => {
+            if (!data.error) {
+                predText.innerHTML = `
+                    Predicción MLP: ${data.mlp.pred} (${Math.round(data.mlp.confidence*100)}%)<br>
+                    Predicción CNN: ${data.cnn.pred} (${Math.round(data.cnn.confidence*100)}%)<br>
+                    Predicción Combinada: ${data.combined.pred} (${Math.round(data.combined.confidence*100)}%)
+                `;
+            }
+        })
+        .catch(err => console.error(err));
     }
 });

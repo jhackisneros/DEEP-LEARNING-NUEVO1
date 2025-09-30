@@ -2,7 +2,7 @@
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from flask import Flask, request, jsonify, render_template, send_file, redirect, url_for
+from flask import Flask, request, jsonify, render_template, send_file
 import io
 import json
 from datetime import datetime
@@ -22,15 +22,16 @@ app.config['UPLOAD_FOLDER'] = os.path.join('app','uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # -------------------------
-# Carga del modelo MNIST
+# Carga de modelos
 # -------------------------
-MODEL_PATH = os.path.join('models', 'MLP_NUEVO.keras')
-if os.path.exists(MODEL_PATH):
-    model = keras.models.load_model(MODEL_PATH, compile=False, safe_mode=False)
-    model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
-else:
-    model = None
-    print(f"Warning: modelo no encontrado en {MODEL_PATH}.")
+MLP_PATH = os.path.join('models', 'MLP_NUEVO.keras')
+CNN_PATH = os.path.join('models', 'CNN_MNIST.keras')
+
+mlp_model = keras.models.load_model(MLP_PATH, compile=False) if os.path.exists(MLP_PATH) else None
+cnn_model = keras.models.load_model(CNN_PATH, compile=False) if os.path.exists(CNN_PATH) else None
+
+if mlp_model: mlp_model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+if cnn_model: cnn_model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 
 # -------------------------
 # Log de predicciones
@@ -50,6 +51,37 @@ def save_prediction_local(record: dict):
         fh.seek(0)
         json.dump(data, fh, ensure_ascii=False, indent=2)
         fh.truncate()
+
+# -------------------------
+# Función para predecir con ambos modelos
+# -------------------------
+def predict_both_models(image_array):
+    result = {}
+
+    if mlp_model:
+        mlp_input = image_array.reshape(1, -1)
+        mlp_pred = mlp_model.predict(mlp_input)
+        result['mlp'] = {
+            'pred': int(np.argmax(mlp_pred)),
+            'confidence': float(np.max(mlp_pred))
+        }
+
+    if cnn_model:
+        cnn_input = image_array.reshape(1,28,28,1)
+        cnn_pred = cnn_model.predict(cnn_input)
+        result['cnn'] = {
+            'pred': int(np.argmax(cnn_pred)),
+            'confidence': float(np.max(cnn_pred))
+        }
+
+    if mlp_model and cnn_model:
+        combined = (mlp_pred + cnn_pred) / 2
+        result['combined'] = {
+            'pred': int(np.argmax(combined)),
+            'confidence': float(np.max(combined))
+        }
+
+    return result
 
 # -------------------------
 # Rutas principales
@@ -80,27 +112,27 @@ def register():
 # -------------------------
 @app.route('/predict', methods=['POST'])
 def predict():
-    if model is None:
-        return jsonify({'error': 'Modelo no cargado'}), 500
     data = request.get_json()
     if not data or 'image' not in data:
         return jsonify({'error': 'No image provided'}), 400
 
     try:
-        arr = preprocess_image(data['image'], target_size=(28,28), flatten=True)
-        pred = model.predict(arr.reshape(1, -1))
-        label = int(np.argmax(pred))
-        confidence = float(np.max(pred))
+        arr = preprocess_image(data['image'], target_size=(28,28), flatten=False)
+        predictions = predict_both_models(arr)
 
         record = {
             'time': datetime.utcnow().isoformat(),
             'user': data.get('user'),
-            'pred': label,
-            'confidence': confidence,
+            'pred_mlp': predictions.get('mlp', {}).get('pred'),
+            'conf_mlp': predictions.get('mlp', {}).get('confidence'),
+            'pred_cnn': predictions.get('cnn', {}).get('pred'),
+            'conf_cnn': predictions.get('cnn', {}).get('confidence'),
+            'pred_combined': predictions.get('combined', {}).get('pred'),
+            'conf_combined': predictions.get('combined', {}).get('confidence'),
         }
         save_prediction_local(record)
+        return jsonify(predictions)
 
-        return jsonify({'pred': label, 'confidence': confidence})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -109,9 +141,6 @@ def predict():
 # -------------------------
 @app.route('/predict_batch', methods=['POST'])
 def predict_batch():
-    if model is None:
-        return jsonify({'error': 'Modelo no cargado'}), 500
-
     results = []
     files = request.files.getlist('files')
     if not files:
@@ -119,15 +148,17 @@ def predict_batch():
 
     for f in files:
         try:
-            arr = preprocess_image(f.read(), target_size=(28,28), flatten=True)
-            pred = model.predict(arr.reshape(1, -1))
-            label = int(np.argmax(pred))
-            confidence = float(np.max(pred))
+            arr = preprocess_image(f.read(), target_size=(28,28), flatten=False)
+            predictions = predict_both_models(arr)
             record = {
                 'time': datetime.utcnow().isoformat(),
                 'filename': f.filename,
-                'pred': label,
-                'confidence': confidence,
+                'pred_mlp': predictions.get('mlp', {}).get('pred'),
+                'conf_mlp': predictions.get('mlp', {}).get('confidence'),
+                'pred_cnn': predictions.get('cnn', {}).get('pred'),
+                'conf_cnn': predictions.get('cnn', {}).get('confidence'),
+                'pred_combined': predictions.get('combined', {}).get('pred'),
+                'conf_combined': predictions.get('combined', {}).get('confidence'),
             }
             save_prediction_local(record)
             results.append(record)
@@ -153,14 +184,14 @@ def predictions_view():
     if pred_filter is not None:
         try:
             pval = int(pred_filter)
-            data = [d for d in data if d.get('pred') == pval]
+            data = [d for d in data if d.get('pred_combined') == pval]
         except ValueError:
             pass
 
     return render_template("predictions_view.html", predictions=data[:limit])
 
 # -------------------------
-# Generación de QR apuntando a /predictions_view
+# Generación de QR
 # -------------------------
 @app.route('/generate_qr', methods=['POST'])
 def generate_qr():
@@ -170,7 +201,7 @@ def generate_qr():
 
     text = payload.get('url') or payload.get('text')
     if not text:
-        return jsonify({'error': 'No url/text provided'}), 400
+        text = "https://tus-predicciones.com"
 
     img_bytes = generate_qr_image_bytes(text)
     return send_file(io.BytesIO(img_bytes), mimetype='image/png')
