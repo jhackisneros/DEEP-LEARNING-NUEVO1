@@ -3,37 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <title>Deep Learning Demo MNIST</title>
-    <!-- CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='darkmode.css') }}" id="darkmode-css" disabled>
-    <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="navbar-left">
-            <a href="{{ url_for('index') }}">MNIST AI Demo</a>
-        </div>
-        <div class="navbar-right">
-            <a href="{{ url_for('index') }}">Inicio</a>
-            <a href="#demo-mnist">Demo MNIST</a>
-            <a href="#upload-demo">Prueba IA</a>
-            <a href="#charts">Métricas</a>
-            <a href="#qr-generator">Generar QR</a>
-            <a href="{{ url_for('login') }}">Login</a>
-            <a href="{{ url_for('register') }}">Registro</a>
-            <button id="toggle-darkmode-navbar">🌙</button>
-        </div>
-    </nav>
+    {% include 'navbar.html' %}
 
     <!-- Sección: Demo MNIST -->
     <section id="demo-mnist">
         <h2>Demo MNIST</h2>
         <canvas id="canvas-mnist" width="280" height="280" style="border:1px solid #000;"></canvas>
-        <div>
-            <button id="clear-canvas">Limpiar</button>
-        </div>
+        <div><button id="clear-canvas">Limpiar</button></div>
         <p id="prediction-realtime">Predicción en tiempo real: -</p>
     </section>
 
@@ -61,7 +42,7 @@
         <img id="qr-img" src="" alt="QR generado">
     </section>
 
-    <!-- JS -->
+    <!-- Scripts -->
     <script src="{{ url_for('static', filename='darkmode.js') }}"></script>
     <script src="{{ url_for('static', filename='charts.js') }}"></script>
     <script src="{{ url_for('static', filename='realtime.js') }}"></script>
