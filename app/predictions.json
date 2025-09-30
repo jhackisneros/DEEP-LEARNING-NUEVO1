@@ -1,5 +1,85 @@
 [
   {
+    "time": "2025-09-30T14:36:15.868810",
+    "user": null,
+    "pred_mlp": 4,
+    "conf_mlp": 0.14210264384746552,
+    "pred_cnn": 1,
+    "conf_cnn": 0.131029412150383,
+    "pred_combined": 4,
+    "conf_combined": 0.11925341933965683
+  },
+  {
+    "time": "2025-09-30T14:36:15.410543",
+    "user": null,
+    "pred_mlp": 8,
+    "conf_mlp": 0.4695238471031189,
+    "pred_cnn": 5,
+    "conf_cnn": 0.9820005297660828,
+    "pred_combined": 5,
+    "conf_combined": 0.6626893877983093
+  },
+  {
+    "time": "2025-09-30T14:36:13.323504",
+    "user": null,
+    "pred_mlp": 4,
+    "conf_mlp": 0.14210264384746552,
+    "pred_cnn": 1,
+    "conf_cnn": 0.131029412150383,
+    "pred_combined": 4,
+    "conf_combined": 0.11925341933965683
+  },
+  {
+    "time": "2025-09-30T14:36:12.883814",
+    "user": null,
+    "pred_mlp": 5,
+    "conf_mlp": 0.9958937168121338,
+    "pred_cnn": 5,
+    "conf_cnn": 0.9999985694885254,
+    "pred_combined": 5,
+    "conf_combined": 0.9979461431503296
+  },
+  {
+    "time": "2025-09-30T14:36:10.219958",
+    "user": null,
+    "pred_mlp": 4,
+    "conf_mlp": 0.14210264384746552,
+    "pred_cnn": 1,
+    "conf_cnn": 0.131029412150383,
+    "pred_combined": 4,
+    "conf_combined": 0.11925341933965683
+  },
+  {
+    "time": "2025-09-30T14:36:09.835399",
+    "user": null,
+    "pred_mlp": 8,
+    "conf_mlp": 0.8053814172744751,
+    "pred_cnn": 8,
+    "conf_cnn": 0.7469068765640259,
+    "pred_combined": 8,
+    "conf_combined": 0.7761441469192505
+  },
+  {
+    "time": "2025-09-30T14:36:05.525107",
+    "user": null,
+    "pred_mlp": 4,
+    "conf_mlp": 0.14210264384746552,
+    "pred_cnn": 1,
+    "conf_cnn": 0.131029412150383,
+    "pred_combined": 4,
+    "conf_combined": 0.11925341933965683
+  },
+  {
+    "time": "2025-09-30T14:36:05.164833",
+    "user": null,
+    "pred_mlp": 6,
+    "conf_mlp": 0.6621133685112,
+    "pred_cnn": 4,
+    "conf_cnn": 0.8807347416877747,
+    "pred_combined": 4,
+    "conf_combined": 0.5787873268127441
+  },
+  {
     "time": "2025-09-30T14:33:33.863810",
     "user": null,
     "pred_mlp": 4,
