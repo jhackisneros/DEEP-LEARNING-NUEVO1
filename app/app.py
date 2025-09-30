@@ -7,13 +7,12 @@ import io
 import json
 from datetime import datetime
 import numpy as np
-import tensorflow as tf
 from tensorflow import keras
 from utils.preprocessing import preprocess_image
 from utils.qr_utils import generate_qr_image_bytes
 from utils.export_utils import export_predictions_to_csv
 
-# Inicialización de Flask con rutas explícitas
+# Inicialización de Flask
 app = Flask(
     __name__,
     template_folder=os.path.join(os.path.dirname(__file__), 'templates'),
@@ -31,10 +30,10 @@ if os.path.exists(MODEL_PATH):
     model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 else:
     model = None
-    print(f"Warning: modelo no encontrado en {MODEL_PATH}. Rutas de predicción estarán inactivas.")
+    print(f"Warning: modelo no encontrado en {MODEL_PATH}.")
 
 # -------------------------
-# Archivo de log de predicciones
+# Log de predicciones
 # -------------------------
 PRED_LOG = os.path.join('app','predictions.json')
 if not os.path.exists(PRED_LOG):
@@ -42,13 +41,12 @@ if not os.path.exists(PRED_LOG):
         json.dump([], f)
 
 def save_prediction_local(record: dict):
-    """Guarda la predicción localmente en predictions.json"""
     with open(PRED_LOG, 'r+', encoding='utf-8') as fh:
         try:
             data = json.load(fh)
         except json.JSONDecodeError:
             data = []
-        data.insert(0, record)  # newest first
+        data.insert(0, record)
         fh.seek(0)
         json.dump(data, fh, ensure_ascii=False, indent=2)
         fh.truncate()
@@ -60,15 +58,11 @@ def save_prediction_local(record: dict):
 def index():
     return render_template('index.html')
 
-# -------------------------
-# Login y Registro
-# -------------------------
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        # Aquí podrías validar usuario
         return f"Login recibido para {username}"
     return render_template('login.html')
 
@@ -78,7 +72,6 @@ def register():
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
-        # Aquí podrías guardar usuario
         return f"Registro recibido para {username}"
     return render_template('register.html')
 
@@ -89,7 +82,6 @@ def register():
 def predict():
     if model is None:
         return jsonify({'error': 'Modelo no cargado'}), 500
-
     data = request.get_json()
     if not data or 'image' not in data:
         return jsonify({'error': 'No image provided'}), 400
@@ -145,43 +137,30 @@ def predict_batch():
     return jsonify(results)
 
 # -------------------------
-# Historial y export
+# Ver predicciones en HTML
 # -------------------------
-@app.route('/history', methods=['GET'])
-def history():
+@app.route('/predictions_view', methods=['GET'])
+def predictions_view():
+    limit = int(request.args.get('limit', 10))
     user = request.args.get('user')
-    pred = request.args.get('pred')
-    limit = int(request.args.get('limit', 50))
+    pred_filter = request.args.get('pred')
 
     with open(PRED_LOG, 'r', encoding='utf-8') as fh:
         data = json.load(fh)
 
     if user:
         data = [d for d in data if d.get('user') == user]
-    if pred is not None:
+    if pred_filter is not None:
         try:
-            pval = int(pred)
+            pval = int(pred_filter)
             data = [d for d in data if d.get('pred') == pval]
         except ValueError:
             pass
 
-    return jsonify(data[:limit])
-
-@app.route('/export', methods=['GET'])
-def export():
-    with open(PRED_LOG, 'r', encoding='utf-8') as fh:
-        data = json.load(fh)
-
-    csv_bytes = export_predictions_to_csv(data)
-    return send_file(
-        io.BytesIO(csv_bytes),
-        mimetype='text/csv',
-        as_attachment=True,
-        download_name='predictions_export.csv'
-    )
+    return render_template("predictions_view.html", predictions=data[:limit])
 
 # -------------------------
-# Generación de QR
+# Generación de QR apuntando a /predictions_view
 # -------------------------
 @app.route('/generate_qr', methods=['POST'])
 def generate_qr():
@@ -195,6 +174,21 @@ def generate_qr():
 
     img_bytes = generate_qr_image_bytes(text)
     return send_file(io.BytesIO(img_bytes), mimetype='image/png')
+
+# -------------------------
+# Exportar CSV
+# -------------------------
+@app.route('/export', methods=['GET'])
+def export():
+    with open(PRED_LOG, 'r', encoding='utf-8') as fh:
+        data = json.load(fh)
+    csv_bytes = export_predictions_to_csv(data)
+    return send_file(
+        io.BytesIO(csv_bytes),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name='predictions_export.csv'
+    )
 
 # -------------------------
 # Run server

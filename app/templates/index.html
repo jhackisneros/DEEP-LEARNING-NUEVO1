@@ -37,8 +37,8 @@
 
     <!-- Sección: Generación de QR -->
     <section id="qr-generator">
-        <h2>Generar QR</h2>
-        <input type="text" id="qr-text" placeholder="Ingresa URL o texto">
+        <h2>Generar QR de tus predicciones</h2>
+        <input type="number" id="qr-limit" placeholder="Número de predicciones" value="10">
         <button id="generate-qr-btn">Generar QR</button>
         <br>
         <img id="qr-img" src="" alt="QR generado">
@@ -49,5 +49,21 @@
     <script src="{{ url_for('static', filename='charts.js') }}"></script>
     <script src="{{ url_for('static', filename='realtime.js') }}"></script>
     <script src="{{ url_for('static', filename='main.js') }}"></script>
+
+    <script>
+        document.getElementById("generate-qr-btn").addEventListener("click", () => {
+            const limit = document.getElementById("qr-limit").value || 10;
+            const url = `${window.location.origin}/predictions_view?limit=${limit}`;
+            fetch("/generate_qr", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({text: url})
+            })
+            .then(resp => resp.blob())
+            .then(blob => {
+                document.getElementById("qr-img").src = URL.createObjectURL(blob);
+            });
+        });
+    </script>
 </body>
 </html>
