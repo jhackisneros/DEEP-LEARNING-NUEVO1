@@ -1,4 +1,4 @@
-# Proyecto Deep-Learning
+# app.py
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -57,10 +57,11 @@ def save_prediction_local(record: dict):
         fh.truncate()
 
 # -------------------------
-# Función para predecir con MLP y CNN por separado
+# Función para predecir con ambos modelos
 # -------------------------
 def predict_both_models(image_array):
     result = {}
+
     if mlp_model:
         mlp_input = image_array.reshape(1, -1)
         mlp_pred = mlp_model.predict(mlp_input)
@@ -68,6 +69,7 @@ def predict_both_models(image_array):
             'pred': int(np.argmax(mlp_pred)),
             'confidence': float(np.max(mlp_pred))
         }
+
     if cnn_model:
         cnn_input = image_array.reshape(1,28,28,1)
         cnn_pred = cnn_model.predict(cnn_input)
@@ -75,6 +77,7 @@ def predict_both_models(image_array):
             'pred': int(np.argmax(cnn_pred)),
             'confidence': float(np.max(cnn_pred))
         }
+
     return result
 
 # -------------------------
@@ -114,17 +117,18 @@ def predict():
         arr = preprocess_image(data['image'], target_size=(28,28), flatten=False)
         predictions = predict_both_models(arr)
 
+        # Guardar registro
         record = {
             'time': datetime.utcnow().isoformat(),
             'user': data.get('user'),
-            'pred_mlp': predictions.get('mlp', {}).get('pred'),
-            'conf_mlp': predictions.get('mlp', {}).get('confidence'),
-            'pred_cnn': predictions.get('cnn', {}).get('pred'),
-            'conf_cnn': predictions.get('cnn', {}).get('confidence')
+            'pred_mlp': predictions.get('mlp', {}).get('pred', None),
+            'conf_mlp': predictions.get('mlp', {}).get('confidence', None),
+            'pred_cnn': predictions.get('cnn', {}).get('pred', None),
+            'conf_cnn': predictions.get('cnn', {}).get('confidence', None),
         }
         save_prediction_local(record)
-        return jsonify(predictions)
 
+        return jsonify(predictions)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -145,15 +149,15 @@ def predict_batch():
             record = {
                 'time': datetime.utcnow().isoformat(),
                 'filename': f.filename,
-                'pred_mlp': predictions.get('mlp', {}).get('pred'),
-                'conf_mlp': predictions.get('mlp', {}).get('confidence'),
-                'pred_cnn': predictions.get('cnn', {}).get('pred'),
-                'conf_cnn': predictions.get('cnn', {}).get('confidence')
+                'pred_mlp': predictions.get('mlp', {}).get('pred', None),
+                'conf_mlp': predictions.get('mlp', {}).get('confidence', None),
+                'pred_cnn': predictions.get('cnn', {}).get('pred', None),
+                'conf_cnn': predictions.get('cnn', {}).get('confidence', None),
             }
             save_prediction_local(record)
             results.append(record)
         except Exception as e:
-            results.append({'filename': getattr(f,'filename',None), 'error': str(e)})
+            results.append({'filename': getattr(f,'filename', None), 'error': str(e)})
 
     return jsonify(results)
 
