@@ -2,8 +2,7 @@
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from flask import Flask, request, jsonify, render_template, send_file
-import os
+from flask import Flask, request, jsonify, render_template, send_file, redirect, url_for
 import io
 import json
 from datetime import datetime
@@ -18,22 +17,19 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = os.path.join('app','uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Try to load the model (if exists)
+# Carga del modelo MNIST
 MODEL_PATH = os.path.join('models', 'MLP_NUEVO.keras')
-
-model = keras.models.load_model(MODEL_PATH)
 if os.path.exists(MODEL_PATH):
     model = keras.models.load_model(MODEL_PATH, compile=False, safe_mode=False)
     model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 else:
-    print(f"Warning: modelo no encontrado en {MODEL_PATH}. Rutas de predicción estarán inactivas hasta entrenar/colocar el modelo.")
+    model = None
+    print(f"Warning: modelo no encontrado en {MODEL_PATH}. Rutas de predicción estarán inactivas.")
 
 PRED_LOG = os.path.join('app','predictions.json')
-# Ensure predictions log exists
 if not os.path.exists(PRED_LOG):
     with open(PRED_LOG, 'w') as f:
         json.dump([], f)
-
 
 def save_prediction_local(record: dict):
     """Guarda la predicción localmente en predictions.json"""
@@ -47,15 +43,40 @@ def save_prediction_local(record: dict):
         json.dump(data, fh, ensure_ascii=False, indent=2)
         fh.truncate()
 
-
+# -------------------------
+# Rutas principales
+# -------------------------
 @app.route('/')
 def index():
     return render_template('index.html')
 
+# -------------------------
+# Login y Registro
+# -------------------------
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        # Aquí podrías validar usuario
+        return f"Login recibido para {username}"
+    return render_template('login.html')
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        # Aquí podrías guardar usuario
+        return f"Registro recibido para {username}"
+    return render_template('register.html')
+
+# -------------------------
+# Predicciones individuales
+# -------------------------
 @app.route('/predict', methods=['POST'])
 def predict():
-    """Recibe JSON {image: 'data:image/png;base64,...', user: 'username' (optional)}"""
     if model is None:
         return jsonify({'error': 'Modelo no cargado'}), 500
 
@@ -63,18 +84,15 @@ def predict():
     if not data or 'image' not in data:
         return jsonify({'error': 'No image provided'}), 400
 
-    img_input = data['image']
-    user = data.get('user', None)
-
     try:
-        arr = preprocess_image(img_input, target_size=(28,28), flatten=True)
+        arr = preprocess_image(data['image'], target_size=(28,28), flatten=True)
         pred = model.predict(arr.reshape(1, -1))
         label = int(np.argmax(pred))
         confidence = float(np.max(pred))
 
         record = {
             'time': datetime.utcnow().isoformat(),
-            'user': user,
+            'user': data.get('user'),
             'pred': label,
             'confidence': confidence,
         }
@@ -84,10 +102,11 @@ def predict():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
+# -------------------------
+# Predicciones batch
+# -------------------------
 @app.route('/predict_batch', methods=['POST'])
 def predict_batch():
-    """Recibe archivos via form-data (files). Retorna lista de predicciones."""
     if model is None:
         return jsonify({'error': 'Modelo no cargado'}), 500
 
@@ -98,8 +117,7 @@ def predict_batch():
 
     for f in files:
         try:
-            img_bytes = f.read()
-            arr = preprocess_image(img_bytes, target_size=(28,28), flatten=True)
+            arr = preprocess_image(f.read(), target_size=(28,28), flatten=True)
             pred = model.predict(arr.reshape(1, -1))
             label = int(np.argmax(pred))
             confidence = float(np.max(pred))
@@ -116,10 +134,11 @@ def predict_batch():
 
     return jsonify(results)
 
-
+# -------------------------
+# Historial y export
+# -------------------------
 @app.route('/history', methods=['GET'])
 def history():
-    """Devuelve historial filtrable por query params: user, pred, limit"""
     user = request.args.get('user')
     pred = request.args.get('pred')
     limit = int(request.args.get('limit', 50))
@@ -127,7 +146,6 @@ def history():
     with open(PRED_LOG, 'r', encoding='utf-8') as fh:
         data = json.load(fh)
 
-    # Apply filters
     if user:
         data = [d for d in data if d.get('user') == user]
     if pred is not None:
@@ -139,10 +157,8 @@ def history():
 
     return jsonify(data[:limit])
 
-
 @app.route('/export', methods=['GET'])
 def export():
-    """Exporta las predicciones a CSV y devuelve como attachment."""
     with open(PRED_LOG, 'r', encoding='utf-8') as fh:
         data = json.load(fh)
 
@@ -154,10 +170,11 @@ def export():
         download_name='predictions_export.csv'
     )
 
-
+# -------------------------
+# Generación de QR
+# -------------------------
 @app.route('/generate_qr', methods=['POST'])
 def generate_qr():
-    """Genera un QR a partir de un JSON {url: 'https://...' } o texto y devuelve la imagen PNG."""
     payload = request.get_json()
     if not payload:
         return jsonify({'error': 'No payload'}), 400
@@ -169,7 +186,8 @@ def generate_qr():
     img_bytes = generate_qr_image_bytes(text)
     return send_file(io.BytesIO(img_bytes), mimetype='image/png')
 
-
+# -------------------------
+# Run server
+# -------------------------
 if __name__ == '__main__':
-    # Development server
     app.run(host='0.0.0.0', port=5000, debug=True)
