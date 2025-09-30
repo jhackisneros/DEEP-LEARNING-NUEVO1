@@ -1,0 +1,57 @@
+/* app/darkmode.css */
+
+body {
+    background-color: #121212;
+    color: #e0e0e0;
+}
+
+header {
+    background-color: #1f1f1f;
+    color: #e0e0e0;
+}
+
+section {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    box-shadow: 0 0 10px rgba(255,255,255,0.05);
+}
+
+.navbar {
+    background-color: #222;
+}
+
+.navbar a {
+    color: #e0e0e0;
+}
+
+.navbar button {
+    color: #e0e0e0;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="file"] {
+    background-color: #333;
+    color: #e0e0e0;
+    border: 1px solid #555;
+}
+
+button {
+    background-color: #005f73;
+    color: #fff;
+}
+
+button:hover {
+    background-color: #0a9396;
+}
+
+#canvas-mnist {
+    background-color: #1e1e1e;
+    border: 2px solid #e0e0e0;
+}
+
+table, th, td {
+    border: 1px solid #555;
+    color: #e0e0e0;
+}

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Deep Learning Demo MNIST</title>
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='darkmode.css') }}" id="darkmode-css" disabled>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-left">
+            <a href="{{ url_for('index') }}">MNIST AI Demo</a>
+        </div>
+        <div class="navbar-right">
+            <a href="{{ url_for('index') }}">Inicio</a>
+            <a href="#demo-mnist">Demo MNIST</a>
+            <a href="#upload-demo">Prueba IA</a>
+            <a href="#charts">Métricas</a>
+            <a href="#qr-generator">Generar QR</a>
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('register') }}">Registro</a>
+            <button id="toggle-darkmode-navbar">🌙</button>
+        </div>
+    </nav>
+
+    <!-- Sección: Demo MNIST -->
+    <section id="demo-mnist">
+        <h2>Demo MNIST</h2>
+        <canvas id="canvas-mnist" width="280" height="280" style="border:1px solid #000;"></canvas>
+        <div>
+            <button id="clear-canvas">Limpiar</button>
+        </div>
+        <p id="prediction-realtime">Predicción en tiempo real: -</p>
+    </section>
+
+    <!-- Sección: Subida de imágenes -->
+    <section id="upload-demo">
+        <h2>Subir Imagen</h2>
+        <input type="file" id="file-input" multiple>
+        <button id="predict-files-btn">Predecir</button>
+        <ul id="file-results"></ul>
+    </section>
+
+    <!-- Sección: Gráficas -->
+    <section id="charts">
+        <h2>Estadísticas</h2>
+        <canvas id="accuracy-chart"></canvas>
+        <canvas id="loss-chart"></canvas>
+    </section>
+
+    <!-- Sección: Generación de QR -->
+    <section id="qr-generator">
+        <h2>Generar QR</h2>
+        <input type="text" id="qr-text" placeholder="Ingresa URL o texto">
+        <button id="generate-qr-btn">Generar QR</button>
+        <br>
+        <img id="qr-img" src="" alt="QR generado">
+    </section>
+
+    <!-- JS -->
+    <script src="{{ url_for('static', filename='darkmode.js') }}"></script>
+    <script src="{{ url_for('static', filename='charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='realtime.js') }}"></script>
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>
