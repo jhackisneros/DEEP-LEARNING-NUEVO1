@@ -1,5 +1,37 @@
 [
   {
+    "time": "2025-10-01T14:19:55.252249",
+    "user": null,
+    "pred_mlp": 4,
+    "conf_mlp": 0.8451202511787415,
+    "pred_cnn": 0,
+    "conf_cnn": 0.9994199275970459
+  },
+  {
+    "time": "2025-10-01T14:19:54.572659",
+    "user": null,
+    "pred_mlp": 8,
+    "conf_mlp": 0.9987177848815918,
+    "pred_cnn": 0,
+    "conf_cnn": 0.9837960004806519
+  },
+  {
+    "time": "2025-10-01T14:19:54.076306",
+    "user": null,
+    "pred_mlp": 4,
+    "conf_mlp": 0.8451202511787415,
+    "pred_cnn": 0,
+    "conf_cnn": 0.9994199275970459
+  },
+  {
+    "time": "2025-10-01T13:43:07.075173",
+    "filename": "pruebaaaa.png",
+    "pred_mlp": 4,
+    "conf_mlp": 0.2102952003479004,
+    "pred_cnn": 4,
+    "conf_cnn": 0.4646182358264923
+  },
+  {
     "time": "2025-10-01T13:30:15.775466",
     "filename": "pruebaaaa.png",
     "pred_mlp": 4,
