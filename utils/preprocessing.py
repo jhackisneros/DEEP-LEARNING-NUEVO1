@@ -3,75 +3,89 @@ import numpy as np
 from PIL import Image, ImageOps
 import base64
 import io
-import re
+import cv2  # Necesario para centrado y bounding box
 
-# Compatibilidad con Pillow 10+
+# Compatibilidad con diferentes versiones de Pillow
 try:
-    resample_method = Image.Resampling.LANCZOS
+    resample_method = Image.Resampling.LANCZOS  # Pillow 10+
 except AttributeError:
-    resample_method = Image.LANCZOS
+    resample_method = Image.LANCZOS  # Pillow <10
 
-def preprocess_image(image_input, target_size=(28, 28), flatten=True):
+def _mnist_style_preprocess(img: Image.Image, target_size=(28, 28)):
     """
-    Preprocesa imágenes para que se asemejen al formato MNIST:
-    - Acepta base64 o bytes
-    - Convierte a escala de grises
-    - Invierte colores (blanco -> negro)
-    - Binariza
-    - Recorta bordes blancos
-    - Centra en un lienzo 28x28
-    - Normaliza a [0, 1]
+    Convierte la imagen a un formato similar a MNIST:
+    - Blanco sobre negro
+    - Recortada al bounding box
+    - Escalada proporcionalmente a 20x20
+    - Centrada en un lienzo de 28x28
     """
-    # 🧠 1️⃣ Decodificar si es base64
-    if isinstance(image_input, str) and image_input.startswith('data:image'):
-        image_input = re.sub('^data:image/.+;base64,', '', image_input)
-        image_input = base64.b64decode(image_input)
-
-    # 🧠 2️⃣ Abrir y convertir a escala de grises
-    img = Image.open(io.BytesIO(image_input)).convert('L')
-
-    # 🧠 3️⃣ Invertir colores → Fondo negro, número blanco
+    # Convertir a escala de grises e invertir (MNIST es blanco sobre negro)
+    img = img.convert("L")
     img = ImageOps.invert(img)
 
-    # 🧠 4️⃣ Binarizar (umbral)
-    img = img.point(lambda x: 0 if x < 50 else 255, 'L')
+    # Convertir a array numpy para procesar
+    arr = np.array(img)
 
-    # 🧠 5️⃣ Recortar los bordes en blanco
-    bbox = img.getbbox()
-    if bbox:
-        img = img.crop(bbox)
+    # Binarizar para facilitar el recorte
+    _, thresh = cv2.threshold(arr, 10, 255, cv2.THRESH_BINARY)
 
-    # 🧠 6️⃣ Redimensionar manteniendo proporciones
-    img.thumbnail((20, 20), resample_method)
+    # Encontrar bounding box (donde hay dibujo)
+    coords = cv2.findNonZero(thresh)
+    if coords is None:
+        # Imagen vacía
+        return np.zeros(target_size, dtype=np.float32)
+    x, y, w, h = cv2.boundingRect(coords)
 
-    # 🧠 7️⃣ Centrar en lienzo 28x28
-    new_img = Image.new('L', target_size, (0))  # fondo negro
-    left = (target_size[0] - img.size[0]) // 2
-    top = (target_size[1] - img.size[1]) // 2
-    new_img.paste(img, (left, top))
+    # Recortar al bounding box
+    cropped = arr[y:y+h, x:x+w]
 
-    # 🧠 8️⃣ Convertir a array y normalizar
-    img_array = np.array(new_img, dtype=np.float32) / 255.0
+    # Escalar manteniendo proporción a 20x20 máximo
+    max_side = max(w, h)
+    scale = 20.0 / max_side
+    new_w, new_h = int(round(w * scale)), int(round(h * scale))
+
+    resized = cv2.resize(cropped, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+    # Crear lienzo 28x28 y centrar
+    canvas = np.zeros(target_size, dtype=np.uint8)
+    x_offset = (target_size[0] - new_w) // 2
+    y_offset = (target_size[1] - new_h) // 2
+    canvas[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = resized
+
+    # Normalizar a [0,1]
+    canvas = canvas.astype(np.float32) / 255.0
+    return canvas
+
+def preprocess_image(image_input, target_size=(28,28), flatten=True):
+    """
+    Convierte una imagen (bytes o base64) a un array normalizado listo para Keras,
+    aplicando un preprocesamiento tipo MNIST.
+    """
+    # Si es base64 tipo 'data:image/png;base64,...'
+    if isinstance(image_input, str) and image_input.startswith('data:image'):
+        header, base64_data = image_input.split(',', 1)
+        image_input = base64.b64decode(base64_data)
+
+    img = Image.open(io.BytesIO(image_input))
+    processed = _mnist_style_preprocess(img, target_size)
 
     if flatten:
-        img_array = img_array.flatten()
+        processed = processed.flatten()
 
-    return img_array
+    return processed
 
-def preprocess_canvas_data(canvas_data, target_size=(28, 28), flatten=True):
+def preprocess_canvas_data(canvas_data, target_size=(28,28), flatten=True):
     """
-    Convierte datos de canvas (array 2D o 1D) a formato listo para Keras.
+    Convierte datos de canvas (p. ej. array de píxeles) a formato listo para Keras.
     """
     arr = np.array(canvas_data, dtype=np.float32)
     if arr.max() > 1:
         arr /= 255.0  # normalizar
 
-    img = Image.fromarray((arr * 255).astype(np.uint8)).convert('L')
-    img = ImageOps.invert(img)
-    img = img.resize(target_size, resample_method)
-    img_array = np.array(img, dtype=np.float32) / 255.0
+    img = Image.fromarray((arr*255).astype(np.uint8)).convert('L')
+    processed = _mnist_style_preprocess(img, target_size)
 
     if flatten:
-        img_array = img_array.flatten()
+        processed = processed.flatten()
 
-    return img_array
+    return processed

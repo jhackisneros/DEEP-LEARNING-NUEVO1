@@ -1,5 +1,21 @@
 [
   {
+    "time": "2025-10-01T13:30:15.775466",
+    "filename": "pruebaaaa.png",
+    "pred_mlp": 4,
+    "conf_mlp": 0.22706188261508942,
+    "pred_cnn": 4,
+    "conf_cnn": 0.48711249232292175
+  },
+  {
+    "time": "2025-10-01T13:29:59.459522",
+    "filename": "pruebaaaa.png",
+    "pred_mlp": 4,
+    "conf_mlp": 0.22706188261508942,
+    "pred_cnn": 4,
+    "conf_cnn": 0.48711249232292175
+  },
+  {
     "time": "2025-10-01T13:18:25.998217",
     "filename": "pruebaaaa.png",
     "pred_mlp": 5,
