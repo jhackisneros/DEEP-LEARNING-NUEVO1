@@ -1,11 +1,37 @@
 document.addEventListener("DOMContentLoaded", () => {
     // -------------------------
+    // Animación QR Manual
+    // -------------------------
+    const qrBtn = document.getElementById("generate-qr-btn");
+    const qrImgManual = document.getElementById("qr-img");
+    const qrInput = document.getElementById("qr-text");
+
+    if (qrBtn) {
+        qrBtn.addEventListener("click", () => {
+            qrImgManual.classList.remove("show");
+            setTimeout(() => {
+                const val = qrInput.value || "https://tus-predicciones.com";
+                fetch("/generate_qr", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: val })
+                })
+                .then(res => res.blob())
+                .then(blob => {
+                    qrImgManual.src = URL.createObjectURL(blob);
+                    qrImgManual.classList.add("show");
+                });
+            }, 200);
+        });
+    }
+
+    // -------------------------
     // Canvas MNIST interactivo
     // -------------------------
     const canvas = document.getElementById("canvas-mnist");
     const predText = document.getElementById("prediction-realtime");
     const qrContainer = document.getElementById("qr-container");
-    const invertCheckbox = document.getElementById("invert-colors"); // checkbox opcional para invertir
+    const qrImg = document.getElementById("qr-prediction-img");
 
     if (canvas) {
         const ctx = canvas.getContext("2d");
@@ -19,15 +45,9 @@ document.addEventListener("DOMContentLoaded", () => {
         function getCoords(e) {
             const rect = canvas.getBoundingClientRect();
             if (e.touches) {
-                return {
-                    x: e.touches[0].clientX - rect.left,
-                    y: e.touches[0].clientY - rect.top
-                };
+                return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
             } else {
-                return {
-                    x: e.offsetX,
-                    y: e.offsetY
-                };
+                return { x: e.offsetX, y: e.offsetY };
             }
         }
 
@@ -71,11 +91,10 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             predText.textContent = "Predicción en tiempo real: -";
             qrContainer.style.display = "none";
-            qrContainer.innerHTML = "";
         });
 
         // -------------------------
-        // Predicción
+        // Predicción + QR automático
         // -------------------------
         function predictCanvas() {
             try {
@@ -85,31 +104,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 tempCanvas.height = canvas.height;
 
                 tempCtx.drawImage(canvas, 0, 0);
-
-                // Obtener datos de pixeles
                 const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
                 const dataPixels = imgData.data;
 
                 let hasDrawing = false;
                 for (let i = 0; i < dataPixels.length; i += 4) {
-                    const r = dataPixels[i];
-                    const g = dataPixels[i + 1];
-                    const b = dataPixels[i + 2];
-                    if (r !== 255 || g !== 255 || b !== 255) hasDrawing = true;
-
-                    // Invertir si está marcado
-                    if (invertCheckbox && invertCheckbox.checked) {
-                        dataPixels[i] = 255 - r;
-                        dataPixels[i + 1] = 255 - g;
-                        dataPixels[i + 2] = 255 - b;
+                    if (dataPixels[i] !== 255 || dataPixels[i+1] !== 255 || dataPixels[i+2] !== 255) {
+                        hasDrawing = true;
                     }
+                    dataPixels[i] = 255 - dataPixels[i];
+                    dataPixels[i + 1] = 255 - dataPixels[i + 1];
+                    dataPixels[i + 2] = 255 - dataPixels[i + 2];
                 }
 
                 if (!hasDrawing) return;
-
                 tempCtx.putImageData(imgData, 0, 0);
-
-                // Convertir a base64
                 const imgBase64 = tempCanvas.toDataURL("image/png");
 
                 fetch("/predict", {
@@ -120,7 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 .then(res => res.json())
                 .then(data => {
                     if (data.error) {
-                        predText.textContent = "Error en predicción";
+                        predText.textContent = "Error al procesar predicción";
                         return;
                     }
 
@@ -134,25 +143,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     predText.textContent = `MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`;
 
-                    // Mostrar QR con la predicción
+                    // Mostrar QR con predicción
                     qrContainer.style.display = "block";
-                    qrContainer.innerHTML = "";
-                    fetch("/generate_qr", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            text: `MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`
-                        })
-                    })
-                    .then(res => res.blob())
-                    .then(blob => {
-                        const url = URL.createObjectURL(blob);
-                        const img = document.createElement("img");
-                        img.src = url;
-                        img.alt = "QR de la predicción";
-                        img.classList.add("qr-image");
-                        qrContainer.appendChild(img);
-                    });
+                    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=MLP:${mlpPred}(${mlpConf}%),CNN:${cnnPred}(${cnnConf}%)`;
                 })
                 .catch(err => {
                     console.error("Error en predicción:", err);
@@ -167,7 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // -------------------------
-    // Subida de imágenes (batch)
+    // Predicción por archivos
     // -------------------------
     const fileInput = document.getElementById("file-input");
     const predictFilesBtn = document.getElementById("predict-files-btn");
@@ -205,32 +198,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.error(err);
                 alert("Error al predecir archivos");
             });
-        });
-    }
-
-    // -------------------------
-    // QR Manual
-    // -------------------------
-    const qrBtn = document.getElementById("generate-qr-btn");
-    const qrImgManual = document.getElementById("qr-img");
-    const qrInput = document.getElementById("qr-text");
-
-    if (qrBtn) {
-        qrBtn.addEventListener("click", () => {
-            qrImgManual.classList.remove("show");
-            setTimeout(() => {
-                const val = qrInput.value || "https://tus-predicciones.com";
-                fetch("/generate_qr", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text: val })
-                })
-                .then(res => res.blob())
-                .then(blob => {
-                    qrImgManual.src = URL.createObjectURL(blob);
-                    qrImgManual.classList.add("show");
-                });
-            }, 200);
         });
     }
 });

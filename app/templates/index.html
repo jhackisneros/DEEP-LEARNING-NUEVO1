@@ -19,13 +19,12 @@
         <canvas id="canvas-mnist" width="280" height="280"></canvas>
         <div class="canvas-controls">
             <button id="clear-canvas">🧹 Limpiar</button>
-            <label>
-                <input type="checkbox" id="invert-colors"> Invertir colores (blanco <-> negro)
-            </label>
         </div>
         <p id="prediction-realtime" class="prediction-text">Predicción en tiempo real: -</p>
-        <div id="qr-prediction-container" class="qr-section" style="display: none;">
+        <div id="qr-container" class="qr-section" style="display: none;">
             <h3>Resultado en QR</h3>
+            <img id="qr-prediction-img" src="" alt="QR con predicción">
+            <p>Escanea el QR para ver los detalles en tu móvil 📱</p>
         </div>
     </section>
 
