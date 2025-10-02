@@ -105,6 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 tempCanvas.width = canvas.width;
                 tempCanvas.height = canvas.height;
 
+                // Copiar imagen sin invertir
                 tempCtx.drawImage(canvas, 0, 0);
                 const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
                 const dataPixels = imgData.data;
