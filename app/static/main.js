@@ -73,7 +73,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!drawing) return;
             drawing = false;
             ctx.closePath();
-            predictCanvas(); // Predicción cuando sueltas
+            predictCanvas(); // Predicción al soltar
         }
 
         // Eventos mouse/touch
@@ -113,15 +113,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 for (let i = 0; i < dataPixels.length; i += 4) {
                     if (dataPixels[i] !== 255 || dataPixels[i+1] !== 255 || dataPixels[i+2] !== 255) {
                         hasDrawing = true;
+                        break;
                     }
-                    // Invertir color (blanco <-> negro)
-                    dataPixels[i] = 255 - dataPixels[i];
-                    dataPixels[i+1] = 255 - dataPixels[i+1];
-                    dataPixels[i+2] = 255 - dataPixels[i+2];
                 }
 
                 if (!hasDrawing) return;
-                tempCtx.putImageData(imgData, 0, 0);
+
                 const imgBase64 = tempCanvas.toDataURL("image/png");
 
                 fetch("/predict", {
@@ -136,7 +133,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         return;
                     }
 
-                    // ⚠️ AHORA accedemos correctamente a data.predictions
                     const mlp = data.predictions?.mlp || {};
                     const cnn = data.predictions?.cnn || {};
 
@@ -147,12 +143,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     predText.textContent = `MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`;
 
-                    // Mostrar QR de la predicción
                     if (data.qr_url) {
                         qrContainer.style.display = "block";
-                        qrContainer.innerHTML = `<h3>Resultado en QR</h3>
+                        qrContainer.innerHTML = `
+                            <h3>Resultado en QR</h3>
                             <img src="${data.qr_url}" alt="QR predicción">
-                            <p>Escanea para ver detalles 📱</p>`;
+                            <p>Escanea para ver detalles 📱</p>
+                        `;
                     }
                 })
                 .catch(err => {
