@@ -26,12 +26,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // -------------------------
-    // Canvas MNIST interactivo + QR automático
+    // Canvas MNIST interactivo
     // -------------------------
     const canvas = document.getElementById("canvas-mnist");
     const predText = document.getElementById("prediction-realtime");
     const qrContainer = document.getElementById("qr-container");
-    const qrImgPrediction = document.getElementById("qr-prediction-img");
 
     if (canvas) {
         const ctx = canvas.getContext("2d");
@@ -50,10 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     y: e.touches[0].clientY - rect.top
                 };
             } else {
-                return {
-                    x: e.offsetX,
-                    y: e.offsetY
-                };
+                return { x: e.offsetX, y: e.offsetY };
             }
         }
 
@@ -77,16 +73,15 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!drawing) return;
             drawing = false;
             ctx.closePath();
-            predictCanvas();
+            predictCanvas(); // Predicción cuando sueltas
         }
 
-        // Eventos mouse
+        // Eventos mouse/touch
         canvas.addEventListener("mousedown", startDrawing);
         canvas.addEventListener("mousemove", draw);
         canvas.addEventListener("mouseup", stopDrawing);
         canvas.addEventListener("mouseleave", stopDrawing);
 
-        // Eventos touch
         canvas.addEventListener("touchstart", startDrawing, { passive: false });
         canvas.addEventListener("touchmove", draw, { passive: false });
         canvas.addEventListener("touchend", stopDrawing);
@@ -97,79 +92,83 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             predText.textContent = "Predicción en tiempo real: -";
             qrContainer.style.display = "none";
-            qrImgPrediction.src = "";
+            qrContainer.innerHTML = "";
         });
 
         // -------------------------
-        // Función de predicción + QR
+        // Predicción + QR automático
         // -------------------------
         function predictCanvas() {
-            const tempCanvas = document.createElement("canvas");
-            const tempCtx = tempCanvas.getContext("2d");
-            tempCanvas.width = canvas.width;
-            tempCanvas.height = canvas.height;
+            try {
+                const tempCanvas = document.createElement("canvas");
+                const tempCtx = tempCanvas.getContext("2d");
+                tempCanvas.width = canvas.width;
+                tempCanvas.height = canvas.height;
 
-            tempCtx.drawImage(canvas, 0, 0);
-            const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-            const dataPixels = imgData.data;
+                tempCtx.drawImage(canvas, 0, 0);
+                const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                const dataPixels = imgData.data;
 
-            let hasDrawing = false;
-            for (let i = 0; i < dataPixels.length; i += 4) {
-                if (dataPixels[i] !== 255 || dataPixels[i+1] !== 255 || dataPixels[i+2] !== 255) {
-                    hasDrawing = true;
-                }
-                dataPixels[i] = 255 - dataPixels[i];
-                dataPixels[i+1] = 255 - dataPixels[i+1];
-                dataPixels[i+2] = 255 - dataPixels[i+2];
-            }
-            if (!hasDrawing) return;
-
-            tempCtx.putImageData(imgData, 0, 0);
-            const imgBase64 = tempCanvas.toDataURL("image/png");
-
-            fetch("/predict", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ image: imgBase64 })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) {
-                    predText.textContent = "Error en predicción";
-                    return;
+                let hasDrawing = false;
+                for (let i = 0; i < dataPixels.length; i += 4) {
+                    if (dataPixels[i] !== 255 || dataPixels[i+1] !== 255 || dataPixels[i+2] !== 255) {
+                        hasDrawing = true;
+                    }
+                    // Invertir color (blanco <-> negro)
+                    dataPixels[i] = 255 - dataPixels[i];
+                    dataPixels[i+1] = 255 - dataPixels[i+1];
+                    dataPixels[i+2] = 255 - dataPixels[i+2];
                 }
 
-                const mlp = data.mlp || {};
-                const cnn = data.cnn || {};
-                const mlpPred = mlp.pred ?? "-";
-                const mlpConf = mlp.confidence !== undefined ? Math.round(mlp.confidence * 100) : "-";
-                const cnnPred = cnn.pred ?? "-";
-                const cnnConf = cnn.confidence !== undefined ? Math.round(cnn.confidence * 100) : "-";
+                if (!hasDrawing) return;
+                tempCtx.putImageData(imgData, 0, 0);
+                const imgBase64 = tempCanvas.toDataURL("image/png");
 
-                predText.textContent = `MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`;
-
-                // Mostrar QR de la predicción
-                const qrText = `Predicción - MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`;
-                fetch("/generate_qr", {
+                fetch("/predict", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text: qrText })
+                    body: JSON.stringify({ image: imgBase64 })
                 })
-                .then(res => res.blob())
-                .then(blob => {
-                    qrImgPrediction.src = URL.createObjectURL(blob);
-                    qrContainer.style.display = "block";
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        predText.textContent = "Error en predicción";
+                        return;
+                    }
+
+                    // ⚠️ AHORA accedemos correctamente a data.predictions
+                    const mlp = data.predictions?.mlp || {};
+                    const cnn = data.predictions?.cnn || {};
+
+                    const mlpPred = mlp.pred ?? "-";
+                    const mlpConf = mlp.confidence !== undefined ? Math.round(mlp.confidence * 100) : "-";
+                    const cnnPred = cnn.pred ?? "-";
+                    const cnnConf = cnn.confidence !== undefined ? Math.round(cnn.confidence * 100) : "-";
+
+                    predText.textContent = `MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`;
+
+                    // Mostrar QR de la predicción
+                    if (data.qr_url) {
+                        qrContainer.style.display = "block";
+                        qrContainer.innerHTML = `<h3>Resultado en QR</h3>
+                            <img src="${data.qr_url}" alt="QR predicción">
+                            <p>Escanea para ver detalles 📱</p>`;
+                    }
+                })
+                .catch(err => {
+                    console.error("Error en predicción:", err);
+                    predText.textContent = "Error al procesar predicción";
                 });
-            })
-            .catch(err => {
-                console.error("Error en predicción:", err);
-                predText.textContent = "Error al procesar predicción";
-            });
+
+            } catch (err) {
+                console.error("Error al procesar el canvas:", err);
+                predText.textContent = "Error interno al procesar el canvas";
+            }
         }
     }
 
     // -------------------------
-    // Predicción por archivos (batch)
+    // Predicción por archivos
     // -------------------------
     const fileInput = document.getElementById("file-input");
     const predictFilesBtn = document.getElementById("predict-files-btn");
@@ -195,9 +194,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         li.textContent = `${r.filename || "Archivo"}: Error -> ${r.error}`;
                     } else {
                         const mlpPred = r.pred_mlp ?? "-";
-                        const mlpConf = r.conf_mlp !== undefined ? Math.round(r.conf_mlp*100) : "-";
+                        const mlpConf = r.conf_mlp !== undefined ? Math.round(r.conf_mlp * 100) : "-";
                         const cnnPred = r.pred_cnn ?? "-";
-                        const cnnConf = r.conf_cnn !== undefined ? Math.round(r.conf_cnn*100) : "-";
+                        const cnnConf = r.conf_cnn !== undefined ? Math.round(r.conf_cnn * 100) : "-";
                         li.textContent = `${r.filename}: MLP ${mlpPred} (${mlpConf}%), CNN ${cnnPred} (${cnnConf}%)`;
                     }
                     fileResults.appendChild(li);
