@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
     // -------------------------
-    // Animación QR Manual
+    // QR Manual
     // -------------------------
     const qrBtn = document.getElementById("generate-qr-btn");
     const qrImgManual = document.getElementById("qr-img");
@@ -26,11 +26,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // -------------------------
-    // Canvas MNIST interactivo
+    // Canvas MNIST interactivo + QR automático
     // -------------------------
     const canvas = document.getElementById("canvas-mnist");
     const predText = document.getElementById("prediction-realtime");
-    const qrContainer = document.getElementById("qr-prediction-container");
+    const qrContainer = document.getElementById("qr-container");
+    const qrImgPrediction = document.getElementById("qr-prediction-img");
 
     if (canvas) {
         const ctx = canvas.getContext("2d");
@@ -76,7 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!drawing) return;
             drawing = false;
             ctx.closePath();
-            predictCanvas(); // Predicción al soltar el mouse
+            predictCanvas();
         }
 
         // Eventos mouse
@@ -95,92 +96,80 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("clear-canvas").addEventListener("click", () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             predText.textContent = "Predicción en tiempo real: -";
-            qrContainer.innerHTML = "";
+            qrContainer.style.display = "none";
+            qrImgPrediction.src = "";
         });
 
         // -------------------------
-        // Predicción + QR automático
+        // Función de predicción + QR
         // -------------------------
         function predictCanvas() {
-            try {
-                const tempCanvas = document.createElement("canvas");
-                const tempCtx = tempCanvas.getContext("2d");
-                tempCanvas.width = canvas.width;
-                tempCanvas.height = canvas.height;
+            const tempCanvas = document.createElement("canvas");
+            const tempCtx = tempCanvas.getContext("2d");
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
 
-                tempCtx.drawImage(canvas, 0, 0);
-                const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-                const dataPixels = imgData.data;
+            tempCtx.drawImage(canvas, 0, 0);
+            const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const dataPixels = imgData.data;
 
-                let hasDrawing = false;
-                for (let i = 0; i < dataPixels.length; i += 4) {
-                    if (dataPixels[i] !== 255 || dataPixels[i+1] !== 255 || dataPixels[i+2] !== 255) {
-                        hasDrawing = true;
-                    }
-                    dataPixels[i] = 255 - dataPixels[i];
-                    dataPixels[i + 1] = 255 - dataPixels[i + 1];
-                    dataPixels[i + 2] = 255 - dataPixels[i + 2];
+            let hasDrawing = false;
+            for (let i = 0; i < dataPixels.length; i += 4) {
+                if (dataPixels[i] !== 255 || dataPixels[i+1] !== 255 || dataPixels[i+2] !== 255) {
+                    hasDrawing = true;
+                }
+                dataPixels[i] = 255 - dataPixels[i];
+                dataPixels[i+1] = 255 - dataPixels[i+1];
+                dataPixels[i+2] = 255 - dataPixels[i+2];
+            }
+            if (!hasDrawing) return;
+
+            tempCtx.putImageData(imgData, 0, 0);
+            const imgBase64 = tempCanvas.toDataURL("image/png");
+
+            fetch("/predict", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ image: imgBase64 })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    predText.textContent = "Error en predicción";
+                    return;
                 }
 
-                if (!hasDrawing) return;
-                tempCtx.putImageData(imgData, 0, 0);
-                const imgBase64 = tempCanvas.toDataURL("image/png");
+                const mlp = data.mlp || {};
+                const cnn = data.cnn || {};
+                const mlpPred = mlp.pred ?? "-";
+                const mlpConf = mlp.confidence !== undefined ? Math.round(mlp.confidence * 100) : "-";
+                const cnnPred = cnn.pred ?? "-";
+                const cnnConf = cnn.confidence !== undefined ? Math.round(cnn.confidence * 100) : "-";
 
-                fetch("/predict", {
+                predText.textContent = `MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`;
+
+                // Mostrar QR de la predicción
+                const qrText = `Predicción - MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`;
+                fetch("/generate_qr", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ image: imgBase64 })
+                    body: JSON.stringify({ text: qrText })
                 })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) {
-                        predText.textContent = "Error en predicción";
-                        return;
-                    }
-
-                    const mlp = data.mlp || {};
-                    const cnn = data.cnn || {};
-
-                    const mlpPred = mlp.pred ?? "-";
-                    const mlpConf = mlp.confidence !== undefined ? Math.round(mlp.confidence * 100) : "-";
-                    const cnnPred = cnn.pred ?? "-";
-                    const cnnConf = cnn.confidence !== undefined ? Math.round(cnn.confidence * 100) : "-";
-
-                    predText.textContent = `MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`;
-
-                    // Generar QR de la predicción
-                    qrContainer.innerHTML = "";
-                    fetch("/generate_qr", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            text: `Predicción - MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`
-                        })
-                    })
-                    .then(res => res.blob())
-                    .then(blob => {
-                        const url = URL.createObjectURL(blob);
-                        const img = document.createElement("img");
-                        img.src = url;
-                        img.alt = "QR de la predicción";
-                        img.classList.add("qr-image");
-                        qrContainer.appendChild(img);
-                    });
-                })
-                .catch(err => {
-                    console.error("Error en predicción:", err);
-                    predText.textContent = "Error al procesar predicción";
+                .then(res => res.blob())
+                .then(blob => {
+                    qrImgPrediction.src = URL.createObjectURL(blob);
+                    qrContainer.style.display = "block";
                 });
-
-            } catch (err) {
-                console.error("Error al procesar el canvas:", err);
-                predText.textContent = "Error interno al procesar el canvas";
-            }
+            })
+            .catch(err => {
+                console.error("Error en predicción:", err);
+                predText.textContent = "Error al procesar predicción";
+            });
         }
     }
 
     // -------------------------
-    // Predicción por archivos
+    // Predicción por archivos (batch)
     // -------------------------
     const fileInput = document.getElementById("file-input");
     const predictFilesBtn = document.getElementById("predict-files-btn");

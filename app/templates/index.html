@@ -21,7 +21,9 @@
             <button id="clear-canvas">🧹 Limpiar</button>
         </div>
         <p id="prediction-realtime" class="prediction-text">Predicción en tiempo real: -</p>
-        <div id="qr-container" class="qr-section" style="display: none;">
+
+        <!-- QR automático de la predicción -->
+        <div id="qr-container" class="qr-section" style="display:none;">
             <h3>Resultado en QR</h3>
             <img id="qr-prediction-img" src="" alt="QR con predicción">
             <p>Escanea el QR para ver los detalles en tu móvil 📱</p>
@@ -39,7 +41,7 @@
     </section>
 
     <!-- =========================
-         Sección QR Manual
+         QR Manual (opcional)
     ========================== -->
     <section id="qr-generator">
         <h2>Generar QR manualmente</h2>
