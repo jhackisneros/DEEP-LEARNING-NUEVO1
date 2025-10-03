@@ -1,14 +1,15 @@
+# app.py
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from flask import Flask, request, jsonify, render_template, send_file
 import io
 import json
-import uuid
 from datetime import datetime
 import numpy as np
 from tensorflow import keras
 from utils.preprocessing import preprocess_image
+from utils.qr_utils import generate_qr_image_bytes
 from utils.export_utils import export_predictions_to_csv
 
 # -------------------------
@@ -56,7 +57,7 @@ def save_prediction_local(record: dict):
         fh.truncate()
 
 # -------------------------
-# Función para predecir con ambos modelos
+# Función para predecir con ambos modelos (MLP y CNN separados)
 # -------------------------
 def predict_both_models(image_array):
     result = {}
@@ -116,6 +117,7 @@ def predict():
         arr = preprocess_image(data['image'], target_size=(28,28), flatten=False)
         predictions = predict_both_models(arr)
 
+        # Guardar registro
         record = {
             'time': datetime.utcnow().isoformat(),
             'user': data.get('user'),
@@ -126,8 +128,7 @@ def predict():
         }
         save_prediction_local(record)
 
-        return jsonify({'predictions': predictions})
-
+        return jsonify(predictions)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -161,42 +162,71 @@ def predict_batch():
     return jsonify(results)
 
 # -------------------------
-# Historial y exportación
+# Historial de predicciones (JSON) para frontend
 # -------------------------
 @app.route('/history', methods=['GET'])
 def history():
     limit = int(request.args.get('limit', 50))
     user = request.args.get('user')
+
     with open(PRED_LOG, 'r', encoding='utf-8') as fh:
         data = json.load(fh)
+
     if user:
         data = [d for d in data if d.get('user') == user]
+
     return jsonify(data[:limit])
 
+# -------------------------
+# Ver predicciones en HTML
+# -------------------------
 @app.route('/predictions_view', methods=['GET'])
 def predictions_view():
     limit = int(request.args.get('limit', 10))
     user = request.args.get('user')
     pred_filter = request.args.get('pred')
+
     with open(PRED_LOG, 'r', encoding='utf-8') as fh:
         data = json.load(fh)
+
     if user:
         data = [d for d in data if d.get('user') == user]
-    if pred_filter:
+    if pred_filter is not None:
         try:
             pval = int(pred_filter)
             data = [d for d in data if d.get('pred_mlp') == pval or d.get('pred_cnn') == pval]
         except ValueError:
             pass
+
     return render_template("predictions_view.html", predictions=data[:limit])
 
+# -------------------------
+# Generación de QR
+# -------------------------
+@app.route('/generate_qr', methods=['POST'])
+def generate_qr():
+    payload = request.get_json()
+    if not payload:
+        return jsonify({'error': 'No payload'}), 400
+
+    text = payload.get('url') or payload.get('text') or "https://tus-predicciones.com"
+    img_bytes = generate_qr_image_bytes(text)
+    return send_file(io.BytesIO(img_bytes), mimetype='image/png')
+
+# -------------------------
+# Exportar CSV
+# -------------------------
 @app.route('/export', methods=['GET'])
 def export():
     with open(PRED_LOG, 'r', encoding='utf-8') as fh:
         data = json.load(fh)
     csv_bytes = export_predictions_to_csv(data)
-    return send_file(io.BytesIO(csv_bytes), mimetype='text/csv', as_attachment=True, download_name='predictions_export.csv')
-
+    return send_file(
+        io.BytesIO(csv_bytes),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name='predictions_export.csv'
+    )
 # -------------------------
 # ADMIN / ENTRENAMIENTO
 # -------------------------
@@ -231,7 +261,6 @@ def train_feedback():
             return jsonify({"message": "No hay modelo MLP cargado"}), 500
     except Exception as e:
         return jsonify({"message": str(e)}), 500
-
 # -------------------------
 # Run server
 # -------------------------
