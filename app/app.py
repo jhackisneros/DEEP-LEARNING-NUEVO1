@@ -1,4 +1,3 @@
-# app.py
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -10,7 +9,6 @@ from datetime import datetime
 import numpy as np
 from tensorflow import keras
 from utils.preprocessing import preprocess_image
-from utils.qr_utils import generate_qr_image_bytes
 from utils.export_utils import export_predictions_to_csv
 
 # -------------------------
@@ -106,7 +104,7 @@ def register():
     return render_template('register.html')
 
 # -------------------------
-# Predicciones individuales con QR personalizado
+# Predicciones individuales
 # -------------------------
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -118,12 +116,7 @@ def predict():
         arr = preprocess_image(data['image'], target_size=(28,28), flatten=False)
         predictions = predict_both_models(arr)
 
-        # 🆕 Generar ID único
-        pred_id = str(uuid.uuid4())
-
-        # Guardar registro con ID
         record = {
-            'id': pred_id,
             'time': datetime.utcnow().isoformat(),
             'user': data.get('user'),
             'pred_mlp': predictions.get('mlp', {}).get('pred', None),
@@ -133,46 +126,10 @@ def predict():
         }
         save_prediction_local(record)
 
-        # 🆕 Generar URL única para QR
-        qr_url_text = f"{request.host_url}prediction/{pred_id}"
-
-        # 🆕 Generar QR y guardarlo en static/qr_predictions
-        qr_folder = os.path.join('app', 'static', 'qr_predictions')
-        os.makedirs(qr_folder, exist_ok=True)
-        filename = f"qr_{pred_id}.png"
-        filepath = os.path.join(qr_folder, filename)
-        img_bytes = generate_qr_image_bytes(qr_url_text)
-        with open(filepath, 'wb') as f:
-            f.write(img_bytes)
-        qr_url = f"/static/qr_predictions/{filename}"
-
-        return jsonify({
-            'predictions': predictions,
-            'qr_url': qr_url,
-            'prediction_url': qr_url_text
-        })
+        return jsonify({'predictions': predictions})
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-# -------------------------
-# Vista bonita para predicción única
-# -------------------------
-@app.route('/prediction/<pred_id>')
-def prediction_view(pred_id):
-    try:
-        if not os.path.exists(PRED_LOG):
-            return render_template('prediction_view.html', record=None)
-
-        with open(PRED_LOG, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-
-        record = next((item for item in data if item.get('id') == pred_id), None)
-        return render_template('prediction_view.html', record=record)
-
-    except Exception as e:
-        print(f"Error cargando predicción: {e}")
-        return render_template('prediction_view.html', record=None)
 
 # -------------------------
 # Predicciones batch
@@ -204,76 +161,46 @@ def predict_batch():
     return jsonify(results)
 
 # -------------------------
-# Historial de predicciones (JSON)
+# Historial y exportación
 # -------------------------
 @app.route('/history', methods=['GET'])
 def history():
     limit = int(request.args.get('limit', 50))
     user = request.args.get('user')
-
     with open(PRED_LOG, 'r', encoding='utf-8') as fh:
         data = json.load(fh)
-
     if user:
         data = [d for d in data if d.get('user') == user]
-
     return jsonify(data[:limit])
 
-# -------------------------
-# Ver predicciones HTML
-# -------------------------
 @app.route('/predictions_view', methods=['GET'])
 def predictions_view():
     limit = int(request.args.get('limit', 10))
     user = request.args.get('user')
     pred_filter = request.args.get('pred')
-
     with open(PRED_LOG, 'r', encoding='utf-8') as fh:
         data = json.load(fh)
-
     if user:
         data = [d for d in data if d.get('user') == user]
-    if pred_filter is not None:
+    if pred_filter:
         try:
             pval = int(pred_filter)
             data = [d for d in data if d.get('pred_mlp') == pval or d.get('pred_cnn') == pval]
         except ValueError:
             pass
-
     return render_template("predictions_view.html", predictions=data[:limit])
 
-# -------------------------
-# Generación de QR manual
-# -------------------------
-@app.route('/generate_qr', methods=['POST'])
-def generate_qr():
-    payload = request.get_json()
-    if not payload:
-        return jsonify({'error': 'No payload'}), 400
-
-    text = payload.get('url') or payload.get('text') or "https://tus-predicciones.com"
-    img_bytes = generate_qr_image_bytes(text)
-    return send_file(io.BytesIO(img_bytes), mimetype='image/png')
-
-# -------------------------
-# Exportar CSV
-# -------------------------
 @app.route('/export', methods=['GET'])
 def export():
     with open(PRED_LOG, 'r', encoding='utf-8') as fh:
         data = json.load(fh)
     csv_bytes = export_predictions_to_csv(data)
-    return send_file(
-        io.BytesIO(csv_bytes),
-        mimetype='text/csv',
-        as_attachment=True,
-        download_name='predictions_export.csv'
-    )
+    return send_file(io.BytesIO(csv_bytes), mimetype='text/csv', as_attachment=True, download_name='predictions_export.csv')
 
 # -------------------------
 # ADMIN / ENTRENAMIENTO
 # -------------------------
-ADMIN_PASSWORD = "admin123"  # cambiar
+ADMIN_PASSWORD = "admin123"  # cambiar a algo seguro
 
 @app.route('/admin', methods=['GET','POST'])
 def admin():
@@ -284,6 +211,7 @@ def admin():
         else:
             return "Contraseña incorrecta", 403
     return render_template('admin_login.html')
+
 
 @app.route('/train_feedback', methods=['POST'])
 def train_feedback():

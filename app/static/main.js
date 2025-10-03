@@ -30,7 +30,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // -------------------------
     const canvas = document.getElementById("canvas-mnist");
     const predText = document.getElementById("prediction-realtime");
-    const qrContainer = document.getElementById("qr-prediction-container");
+    const qrContainer = document.getElementById("qr-container");
+    const qrImg = document.getElementById("qr-prediction-img");
 
     if (canvas) {
         const ctx = canvas.getContext("2d");
@@ -44,15 +45,9 @@ document.addEventListener("DOMContentLoaded", () => {
         function getCoords(e) {
             const rect = canvas.getBoundingClientRect();
             if (e.touches) {
-                return {
-                    x: e.touches[0].clientX - rect.left,
-                    y: e.touches[0].clientY - rect.top
-                };
+                return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
             } else {
-                return {
-                    x: e.offsetX,
-                    y: e.offsetY
-                };
+                return { x: e.offsetX, y: e.offsetY };
             }
         }
 
@@ -76,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!drawing) return;
             drawing = false;
             ctx.closePath();
-            predictCanvas(); // Predicción al soltar el mouse
+            predictCanvas();
         }
 
         // Eventos mouse
@@ -95,7 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("clear-canvas").addEventListener("click", () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             predText.textContent = "Predicción en tiempo real: -";
-            qrContainer.innerHTML = "";
+            qrContainer.style.display = "none";
         });
 
         // -------------------------
@@ -134,12 +129,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 .then(res => res.json())
                 .then(data => {
                     if (data.error) {
-                        predText.textContent = "Error en predicción";
+                        predText.textContent = "Error al procesar predicción";
                         return;
                     }
 
-                    const mlp = data.mlp || {};
-                    const cnn = data.cnn || {};
+                    const mlp = data.predictions.mlp || {};
+                    const cnn = data.predictions.cnn || {};
 
                     const mlpPred = mlp.pred ?? "-";
                     const mlpConf = mlp.confidence !== undefined ? Math.round(mlp.confidence * 100) : "-";
@@ -148,24 +143,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     predText.textContent = `MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`;
 
-                    // Generar QR de la predicción
-                    qrContainer.innerHTML = "";
-                    fetch("/generate_qr", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            text: `Predicción - MLP: ${mlpPred} (${mlpConf}%), CNN: ${cnnPred} (${cnnConf}%)`
-                        })
-                    })
-                    .then(res => res.blob())
-                    .then(blob => {
-                        const url = URL.createObjectURL(blob);
-                        const img = document.createElement("img");
-                        img.src = url;
-                        img.alt = "QR de la predicción";
-                        img.classList.add("qr-image");
-                        qrContainer.appendChild(img);
-                    });
+                    // Mostrar QR con predicción
+                    qrContainer.style.display = "block";
+                    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=MLP:${mlpPred}(${mlpConf}%),CNN:${cnnPred}(${cnnConf}%)`;
                 })
                 .catch(err => {
                     console.error("Error en predicción:", err);
